@@ -9,6 +9,7 @@ module Rbind
         attr_accessor :version
         attr_accessor :signature
         attr_accessor :csignature
+        attr_accessor :ignore
 
         class << self
             attr_accessor :cprefix
@@ -74,6 +75,10 @@ module Rbind
 
         def generate_signatures
             ["#{full_name}","#{cname}"]
+        end
+
+        def ignore?
+            !!@ignore
         end
 
         def signature(sig=nil)

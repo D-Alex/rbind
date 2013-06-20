@@ -82,13 +82,15 @@ module Rbind
        class ConstsHelper < HelperBase
            def wrap_consts
                str = ""
-               @root.each_type do |type|
-                   next if !type.container?
-                   next if type.consts.empty?
-                   str += "\n\n//constants for #{type.full_name}\n"
-                   str += type.consts.map do |c|
-                       "#{c.csignature};\n"
-                   end.join
+               @root.each_container do |type|
+                   str2 = ""
+                   type.each_const(false) do |c|
+                       str2 += "#{c.csignature};\n"
+                   end
+                   if !str2.empty?
+                        str += "\n\n//constants for #{type.full_name}\n"
+                        str += str2
+                   end
                    str
                end
                str
@@ -131,10 +133,6 @@ module Rbind
                @type_conversion.result(t.binding)
            end
 
-           def check_type?
-               type_check?
-           end
-
            def wrap_conversions
                str = ""
                @root.each_type do |type|
@@ -152,13 +150,11 @@ module Rbind
 
            def wrap_operations
                str = ""
-               @root.each_type do |type|
-                   next unless type.respond_to? :operations
-                   str2 = type.operations.map do |ops|
-                       ops.map do |op|
-                           "#{op.csignature};"
-                       end.join("\n")
-                   end.join("\n")
+               @root.each_container do |type|
+                   str2 = ""
+                   type.each_operation do |op|
+                       str2 += "#{op.csignature};\n"
+                   end
                    if !str2.empty?
                        str += "\n\n///methods for #{type.full_name}\n"
                        str += str2
@@ -252,21 +248,19 @@ module Rbind
 
            def wrap_operations
                str = ""
-               @root.each_type do |type|
-                   next unless type.respond_to? :operations
-                   str += type.operations.map do |ops|
-                       ops.map do |op|
-                           operation_wrapper(op)
-                       end.join("\n")
-                   end.join("\n")
+               @root.each_container do |type|
+                   type.each_operation do |op|
+                       str += operation_wrapper(op)
+                   end
                end
                str
            end
        end
 
        class CMakeListsHelper < HelperBase
-           def initialize(name,pkg_config=Array.new)
-               super
+           def initialize(name,pkg_config=Array.new,libs=Array.new)
+               super(name,pkg_config)
+               @libs = libs
                @find_package = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","find_package.txt")).read)
            end
 
@@ -277,9 +271,10 @@ module Rbind
            end
 
            def libs
-               @root.map do |pkg|
+               str = @root.map do |pkg|
                    "${#{pkg.upcase}_LIBS} ${#{pkg.upcase}_LDFLAGS}"
                end.join(" ")
+               str += " " + @libs.join(" ")
            end
 
            def library_name
@@ -289,6 +284,7 @@ module Rbind
 
        attr_accessor :includes
        attr_accessor :library_name
+       attr_accessor :libs
        attr_accessor :pkg_config
        attr_accessor :generate_cmake
        attr_accessor :output_path
@@ -305,10 +301,12 @@ module Rbind
            @erb_conversions_hdr = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","conversions.hpp")).read)
            @erb_cmakelists = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","CMakeLists.txt")).read)
            @erb_find_package = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","find_package.txt")).read)
+           @erb_pkg_config = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","rbind.pc.in")).read)
            @includes = Array.new
-           @pkgconfig= Array.new
+           @pkg_config= Array.new
            @library_name = library_name
            @generate_cmake = true
+           @libs = []
        end
 
        def generate(path = @output_path)
@@ -321,33 +319,47 @@ module Rbind
            file_operations_hdr = File.new(File.join(path,"operations.h"),"w")
            file_conversions = File.new(File.join(path,"conversions.cc"),"w")
            file_conversions_hdr = File.new(File.join(path,"conversions.hpp"),"w")
-           file_cmakelists = File.new(File.join(path,"CMakeLists.txt"),"w")
+           rbind_pkgs = Rbind.rbind_pkgs(@pkg_config)
 
-           types_hdr = TypesHelperHDR.new("_RBIND_TYPES_H_",@root)
+           types_hdr = TypesHelperHDR.new("_#{library_name.upcase}_TYPES_H_",@root)
+           types_hdr.includes = rbind_pkgs.map do |p|
+               "<#{p}/types.h>"
+           end
            file_types_hdr.write @erb_types_hdr.result(types_hdr.binding)
 
            types = TypesHelper.new("types",@root)
            file_types.write @erb_types.result(types.binding)
 
-           consts = ConstsHelper.new("_RBIND_CONSTS_H_",@root)
+           consts = ConstsHelper.new("_#{library_name.upcase}_CONSTS_H_",@root)
+           consts.includes = rbind_pkgs.map do |p|
+               "<#{p}/constants.h>"
+           end
            file_consts.write @erb_consts.result(consts.binding)
 
-           conversions_hdr = ConversionsHelperHDR.new("_RBIND_CONVERSIONS_H_",@root)
+           conversions_hdr = ConversionsHelperHDR.new("#{library_name.upcase}_CONVERSIONS_H_",@root)
+           conversions_hdr.includes = rbind_pkgs.map do |p|
+               "<#{p}/conversions.hpp>"
+           end
            conversions_hdr.includes += includes
            file_conversions_hdr.write @erb_conversions_hdr.result(conversions_hdr.binding)
 
            conversions = ConversionsHelper.new("conversions",@root)
            file_conversions.write @erb_conversions.result(conversions.binding)
 
-           operations_hdr = OperationsHDRHelper.new("_RBIND_OPERATIONS_H_",@root)
+           operations_hdr = OperationsHDRHelper.new("_#{library_name.upcase}_OPERATIONS_H_",@root)
            file_operations_hdr.write @erb_operations_hdr.result(operations_hdr.binding)
 
            operations = OperationsHelper.new("operations",@root)
            file_operations.write @erb_operations.result(operations.binding)
 
-           if generate_cmake
-               cmakelists = CMakeListsHelper.new(@library_name,@pkg_config)
+           if generate_cmake && !File.exist?(File.join(path,"CMakeLists.txt"))
+               file_cmakelists = File.new(File.join(path,"CMakeLists.txt"),"w")
+               cmakelists = CMakeListsHelper.new(@library_name,@pkg_config,@libs)
                file_cmakelists.write @erb_cmakelists.result(cmakelists.binding)
+               if !File.exist?(File.join(path,"rbind.pc.in"))
+                   file_pkg_config = File.new(File.join(path,"rbind.pc.in"),"w")
+                   file_pkg_config.write @erb_pkg_config.result(Kernel.binding)
+               end
            end
        end
    end

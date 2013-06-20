@@ -9,6 +9,33 @@ module Rbind
         attr_accessor :name
         attr_accessor :pkg_config
 
+        def self.pkg_paths(pkg_name)
+            out = IO.popen("pkg-config --cflags-only-I #{pkg_name}")
+            paths = out.read.split("-I").delete_if(&:empty?).map do |i|
+                i.gsub("\n","").gsub(" ","")
+            end
+            raise "Cannot find pkg paths for #{pkg_name}" if paths.empty?
+            paths
+        end
+
+        def self.rbind_pkgs(pkg_names)
+            pkg_names.find_all do |p|
+                !!(p =~ /^rbind_.*/)
+            end
+        end
+
+        def self.rbind_pkg_paths(pkg_names)
+            rbind_packages = rbind_pkgs(pkg_names)
+            rbind_paths = rbind_packages.map do |pkg|
+                paths = pkg_paths(pkg)
+                path = paths.find do |p|
+                    File.exist?(File.join(p,pkg,"extern.rbind"))
+                end
+                raise "cannot find extern.rbind for rbind package #{pkg}" unless path
+                File.join(path,pkg)
+            end
+        end
+
         def initialize(name)
             @name = name
             @includes = []
@@ -17,6 +44,7 @@ module Rbind
             lib_name = "rbind_#{name.downcase}"
             @generator_c = GeneratorC.new(@parser,lib_name)
             @generator_ruby = GeneratorRuby.new(@parser,name,lib_name)
+            @generator_extern = GeneratorExtern.new(@parser)
         end
 
         def parse(*files)
@@ -46,8 +74,18 @@ module Rbind
             end
         end
 
-        def parse_headers(*headers)
-            ::Rbind.log.info "parse header files"
+        # parses other rbind packages
+        def parse_extern
+            paths = Rbind.rbind_pkg_paths(@pkg_config)
+            paths.each do |pkg|
+                config = YAML.load(File.open(File.join(pkg,"config.rbind")).read)
+                path = File.join(pkg,"extern.rbind")
+                ::Rbind.log.info "parsing extern rbind pkg file #{path}"
+                parser.parse(File.open(path).read,config.ruby_module_name)
+            end
+        end
+
+        def parse_headers_dry(*headers)
             check_python
             headers = if headers.empty?
                           includes
@@ -59,7 +97,11 @@ module Rbind
             end
             path = File.join(File.dirname(__FILE__),'tools','hdr_parser.py')
             out = IO.popen("python #{path} #{headers.join(" ")}")
-            parser.parse out.read
+            out.read
+        end
+
+        def parse_headers(*headers)
+            parser.parse parse_headers_dry(*headers)
         end
 
         def build
@@ -82,11 +124,18 @@ module Rbind
 
         def generate(c_path = "src",ruby_path = "ruby/lib/#{name.downcase}")
             generate_c c_path
+            generate_extern c_path
             generate_ruby ruby_path
         end
 
         def generate_ruby(path)
             ::Rbind.log.info "generate ruby ffi wrappers"
+            paths = Rbind.rbind_pkg_paths(@pkg_config)
+            modules = paths.map do |pkg|
+                config = YAML.load(File.open(File.join(pkg,"config.rbind")).read)
+                config.ruby_module_name
+            end
+            @generator_ruby.required_module_names = modules
             @generator_ruby.generate(path)
         end
 
@@ -95,6 +144,10 @@ module Rbind
             @generator_c.includes = includes
             @generator_c.pkg_config = pkg_config
             @generator_c.generate(path)
+        end
+
+        def generate_extern(path)
+            @generator_extern.generate(path,@generator_ruby.module_name)
         end
 
         def use_namespace(name)
@@ -112,6 +165,10 @@ module Rbind
 
         def on_type_not_found(&block)
             @parser.on_type_not_found(&block)
+        end
+
+        def libs
+            @generator_c.libs
         end
 
         def method_missing(m,*args)

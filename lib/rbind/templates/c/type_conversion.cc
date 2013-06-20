@@ -21,19 +21,15 @@ const <%= full_name %>* fromC(const <%= cname %>* ptr)
         throw std::runtime_error(str + static_cast<const std::type_info*>(ptr->type_id)->name()
                     + " but was expecting " + typeid(<%= full_name %>).name());
     }
-
     // check version
     if(ptr->version != <%= version %>)
         throw std::runtime_error("wrong object version for <%= full_name %>");
     <%- end %>
-
     // check size
-    if(sizeof(<%= full_name %>) > ptr->size)
-        throw std::runtime_error("wrong object size for <%= full_name %>");
-
+    if(ptr->size && sizeof(<%= full_name %>) > ptr->size)
+        throw std::runtime_error("wrong object size for <%= full_name %>.");
     if(!ptr->obj_ptr)
         throw std::runtime_error("object for <%= full_name %> was deleted!");
-
     return static_cast<const <%= full_name %>*>(ptr->obj_ptr);
 }
 

@@ -1,5 +1,6 @@
 require 'ffi'
-require File.join(File.dirname(__FILE__),'opencv_types')
+require File.join(File.dirname(__FILE__),'<%= file_prefix %>_types.rb')
+<%= required_module_names %>
 
 module <%= name %>
     # low level accessors the wrapped library 

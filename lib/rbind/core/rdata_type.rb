@@ -4,13 +4,22 @@ module Rbind
         attr_accessor :ptr,:ref
         attr_accessor :typedef
         attr_accessor :invalid_value
-        attr_accessor :cdelete_method;
-        attr_accessor :check_type;
+        attr_accessor :cdelete_method
+        attr_accessor :check_type
+        attr_accessor :extern_package_name
 
         def initialize(name,*flags)
             super
             @invalid_value = 0
-            @type_check = true
+            @check_type = true
+        end
+
+        def extern?
+           @flags.include? :Extern
+        end
+
+        def valid_flags
+            super << :Extern
         end
 
         def ==(other)
@@ -54,10 +63,12 @@ module Rbind
             !!@typedef
         end
 
+        # elementar type of c
         def basic_type?
             true
         end
 
+        # holds ofther operations, types or consts
         def container?
             false
         end

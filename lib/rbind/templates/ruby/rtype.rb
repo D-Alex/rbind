@@ -18,7 +18,7 @@ class <%= name %>
     native_type FFI::Type::POINTER
 
     def self.new(*args)
-        if args.first.is_a?(FFI::Pointer)
+        if args.first.is_a?(FFI::Pointer) || args.first.is_a?(<%= name %>Struct)
             raise ArgumentError, "too many arguments for creating #{self.name} from Pointer" unless args.size == 1
             return super(args.first)
         end

@@ -1,7 +1,7 @@
 
 module Rbind
     class RClass < RStruct
-        attr_accessor :parent_classes
+        attr_reader :parent_classes
 
         def initialize(name,*parent_classes)
             @parent_classes  = Hash.new
@@ -134,6 +134,9 @@ module Rbind
         def add_parent(klass)
             if @parent_classes.has_key? klass.name
                 raise ArgumentError,"#A parent class with the name #{klass.name} already exists"
+            end
+            if klass.full_name == full_name || klass == self
+                raise ArgumentError,"class #{klass.full_name} cannot be parent of its self"
             end
             # we have to disable the type check for the parent class 
             # otherwise derived types cannot be parsed

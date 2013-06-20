@@ -4,7 +4,7 @@ module Rbind
         class << self
             attr_accessor :default_type_names
         end
-        self.default_type_names = [:uint64,:int,:int64,:bool,:double,:float,:void,:char,:size_t]
+        self.default_type_names = [:uint64,:int,:int64,:bool,:double,:float,:void,:char,:size_t,:uint8_t]
 
         attr_reader :operations
         attr_reader :operation_alias
@@ -46,14 +46,22 @@ module Rbind
             @used_namespaces[namespace.name] = namespace
         end
 
-        def each_type(childs=true,&block)
+        def each_type(childs=true,all=false,&block)
             if block_given?
                 types.each do |t|
+                    next if !all && (t.ignore? || t.extern?)
                     yield t
-                    t.each_type(&block) if childs && t.respond_to?(:each_type)
+                    t.each_type(childs,all,&block) if childs && t.respond_to?(:each_type)
                 end
             else
-                Enumerator.new(self,:each_type,childs)
+                Enumerator.new(self,:each_type,childs,all)
+            end
+        end
+
+        def each_container(all=false,&block)
+            each_type(true,all) do |t|
+                next unless t.container?
+                yield t
             end
         end
 
@@ -81,6 +89,51 @@ module Rbind
                       owner.const(name,false)
                   end
             raise RuntimeError,"#{full_name} has no const called #{name}" if raise_ && !c
+        end
+
+        def each_const(childs=true,all=false,&block)
+            if block_given?
+                consts.each do |c|
+                    next if !all && (c.ignore? || c.extern?)
+                    yield c
+                end
+                return unless childs
+                each_container(all) do |t|
+                    t.each_const(childs,all,&block)
+                end
+            else
+                Enumerator.new(self,:each_const,childs,all)
+            end
+        end
+
+        def extern?
+            return super() if self.is_a?(RStruct)
+
+            # check if self is container holding only
+            # extern objects
+            each_type(false) do |t|
+                return false if !t.extern?
+            end
+            each_const(false) do |c|
+                return false if !c.extern?
+            end
+            each_operation do |t|
+                return false
+            end
+            true
+        end
+
+        def each_operation(all=false,&block)
+            if block_given?
+                operations.each do |ops|
+                    ops.each do |o|
+                        next if !all && o.ignore?
+                        yield o
+                    end
+                end
+            else
+                Enumerator.new(self,:each_operaion,all)
+            end
         end
 
         def operations

@@ -12,13 +12,14 @@ module Rbind
 
         def normalize_flags(line_number,flags)
             flags.map do |flag|
+                next if flag.empty?
                 if flag =~ /(\w*)(.*)/
                     DefaultParser.log.debug "input line #{line_number}: ignoring flag #{$2}" unless $2.empty?
                     $1.to_sym
                 else
                     raise "cannot parse flag #{flag.inspect}"
                 end
-            end
+            end.compact
         end
 
         def normalize_default_value(value)
@@ -108,34 +109,45 @@ module Rbind
 
         def parse_class(line_number,string)
             lines = string.split("\n")
-            a = lines.shift.rstrip.split(" : ")
-            name = a[0].split(" ")[1]
-            parents = a[1]
-            parent_classes = if parents
-                                 parents.split(", ").map do |name|
+            a = lines.shift.rstrip
+            unless a =~ /class ([a-zA-Z\.\d_:]*) ?:?([a-zA-Z\.\:, \d_]*)(.*)/
+                raise "cannot parse class #{a}"
+            end
+            name = $1
+            parent_classes = $2
+            flags = $3
+            parent_classes = if parent_classes
+                                 parent_classes.gsub(" ","").split(",").map do |name|
                                      t = type(RBase.normalize(name),false)
                                      # auto add parent class
                                      t ||= add_type(RClass.new(RBase.normalize(name)))
                                  end
                              end
+            flags = if flags
+                       normalize_flags(line_number,flags.gsub(" ","").split("/").compact)
+                    end
             t = RClass.new(name,*parent_classes)
             t = if t2 = type(t.full_name,false)
                     if !t2.is_a?(RClass) || (!t2.parent_classes.empty? && t2.parent_classes != t.parent_classes)
                         raise "Cannot add class #{t.full_name}. A different type #{t2} is already registered"
                     else
-                        t2.parent_classes = t.instance_variable_get(:@parent_classes)
+                        t.parent_classes.each do |p|
+                            t2.add_parent p
+                        end
                         t2
                     end
                 else
                     add_type(t)
                     t
                 end
+            t.flags = flags if flags
             line_counter = 1
             lines.each do |line|
                 a = attribute(line_counter+line_number,line,t)
                 t.add_attribute(a)
                 line_counter += 1
             end
+            t.extern_package_name = @extern_package_name
             [t,line_counter]
         rescue RuntimeError  => e
             raise "input line #{line_number}: #{e}"
@@ -155,6 +167,7 @@ module Rbind
                 klass.add_attribute(a)
                 line_counter += 1
             end
+            klass.extern_package_name = @extern_package_name
             [klass,line_counter]
         rescue RuntimeError  => e
             raise "input line #{line_number}: #{e}"
@@ -162,11 +175,19 @@ module Rbind
 
         def parse_const(line_number,string)
             raise "multi line const are not supported: #{string}" if string.split("\n").size > 1
-            a = string.split(" ")
-            raise "not a constant: #{string}" unless a.shift == "const"
-            name = a.shift
-            value = a.join(" ")
+            unless string =~ /const ([a-zA-Z\.\d_:]*) ?([^\/]*)(.*)/
+                raise "cannot parse const #{string}"
+            end
+            name = $1
+            value = $2.chomp("\n").chomp(" ")
+            flags = $3
+            flags = if flags
+                       normalize_flags(line_number,flags.gsub(" ","").split("/").compact)
+                    end
+
             c = RConst.new(name,value)
+            c.flags = flags if flags
+            c.extern_package_name = @extern_package_name
             add_const(c)
             [c,1]
         end
@@ -211,7 +232,9 @@ module Rbind
             [op,line_counter]
         end
 
-        def parse(string)
+        def parse(string,extern_package_name=nil)
+            @extern_package_name = extern_package_name
+
             a = split(string)
             a.pop #remove number at the end of the file
             line_number = 1

@@ -57,11 +57,20 @@ module Rbind
 
 
         def self.normalize_type_name(name)
-            name.split("::").map do |n|
+            names = name.split("::").map do |n|
                 n.gsub(/^(\w)(.*)/) do 
                     $1.upcase+$2
                 end
-            end.join("::")
+            end
+            n = names.last.split("_").first
+            if n == n.upcase
+                return names.join("::")
+            end
+            names.join("::").split("_").map do |n|
+                n.gsub(/^(\w)(.*)/) do 
+                    $1.upcase+$2
+                end
+            end.join("")
         end
 
         def self.normalize_basic_type_name(name)
@@ -76,21 +85,18 @@ module Rbind
         end
 
         def self.normalize_method_name(name)
-            name = name.to_s.sub(/\A#{RBase.cprefix}?/, "").gsub(/(?<!\A)\p{Lu}/u, '_\0').downcase
+            name = name.to_s.gsub(/\A#{RBase.cprefix}?/, "").gsub(/(?<!\A)\p{Lu}/u, '_\0').downcase
             str = ""
             name.split("_").each_with_index do |n,i|
-                if n.empty?
-                    str += "_"
-                    next
-                end
+                next if n.empty?
                 if n.size == 1 && i > 1
                     str += n
                 else
                     str += "_#{n}"
                 end
             end
-            name = str[1,str.size-1]
-            name = if name =~/^operator(.*)/
+            str = str[1..-1] #remove leading "_"
+            str = if str =~/^operator(.*)/
                         n = $1
                         if n =~ /\(\)/
                             raise "forbbiden method name #{name}"
@@ -112,7 +118,7 @@ module Rbind
                             n
                         end
                    else
-                        name
+                       str
                    end
         end
 
@@ -133,15 +139,20 @@ module Rbind
         end
 
         class RBindHelper < HelperBase
-            #TODO
-            attr_accessor :library_name
+            attr_reader :compact_namespace
 
-            def initialize(name, root)
-                super
+            def initialize(name, root,compact_namespace=false)
+                @compact_namespace = compact_namespace
+                super(name,root)
             end
 
             def normalize_t(name)
-                GeneratorRuby.normalize_type_name name
+                t = GeneratorRuby.normalize_type_name name
+                if compact_namespace
+                    t.gsub(/^#{self.name}::/,"")
+                else
+                    t
+                end
             end
 
             def normalize_bt(name)
@@ -152,9 +163,23 @@ module Rbind
                 GeneratorRuby.normalize_method_name name
             end
 
+            def library_name
+                @root.library_name
+            end
+
+            def required_module_names
+                @root.required_module_names.map do |name|
+                    "require '#{name.downcase}'\n"
+                end.join
+            end
+
+            def file_prefix
+                @root.file_prefix
+            end
+
             def add_accessors
                 str = ""
-                @root.each_type do |t|
+                @root.root.each_type do |t|
                     next if t.basic_type? && !t.is_a?(RNamespace)
                     str += "\n#methods for #{t.full_name}\n"
                     if t.cdelete_method
@@ -163,28 +188,34 @@ module Rbind
                         str += "attach_function :#{normalize_m t.cdelete_method}_struct,"\
                         ":#{t.cdelete_method},[#{normalize_t t.full_name}Struct],:void\n"
                     end
-                    str += t.operations.map do |ops|
-                        ops.map do |op|
-                            return_type = if op.constructor?
-                                              "#{normalize_t op.owner.full_name}"
+                    t.each_operation do |op|
+                        return_type = if op.constructor?
+                                          "#{normalize_t op.owner.full_name}"
+                                      else
+                                          if op.return_type.basic_type?
+                                              ":#{normalize_bt op.return_type.csignature}"
                                           else
-                                              if op.return_type.basic_type?
-                                                  ":#{normalize_bt op.return_type.csignature}"
+                                              if op.return_type.extern_package_name
+                                                  normalize_t("::#{op.return_type.extern_package_name}::#{op.return_type.full_name}")
                                               else
-                                                  "#{normalize_t op.return_type.full_name}"
+                                                  normalize_t op.return_type.full_name
                                               end
                                           end
-                            args = op.cparameters.map do |p|
-                                if p.type.basic_type?
-                                    ":#{normalize_bt p.type.csignature}"
+                                      end
+                        args = op.cparameters.map do |p|
+                            if p.type.basic_type?
+                                ":#{normalize_bt p.type.csignature}"
+                            else
+                                if p.type.extern_package_name
+                                    normalize_t("::#{p.type.extern_package_name}::#{p.type.full_name}")
                                 else
-                                    "#{normalize_t p.type.full_name}"
+                                    normalize_t p.type.full_name
                                 end
                             end
-                            fct_name = normalize_m op.cname
-                            "attach_function :#{fct_name},:#{op.cname},[#{args.join(",")}],#{return_type}\n"
-                        end.join
-                    end.join
+                        end
+                        fct_name = normalize_m op.cname
+                        str += "attach_function :#{fct_name},:#{op.cname},[#{args.join(",")}],#{return_type}\n"
+                    end
                     str+"\n"
                 end
                 str+"\n"
@@ -241,13 +272,14 @@ module Rbind
                 end
             end
 
-            def initialize(name, root)
+            def initialize(name, root,compact_namespace = false)
                 @type_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rtype.rb")).read,nil,"-")
                 @type_constructor_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rtype_constructor.rb")).read,nil,"-")
                 @namespace_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rnamespace.rb")).read,nil,"-")
                 @static_method_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rstatic_method.rb")).read)
                 @method_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rmethod.rb")).read,nil,'-')
-                super
+                @compact_namespace = compact_namespace
+                super(name,root)
             end
 
             def name
@@ -275,39 +307,55 @@ module Rbind
                 ops = Array(@root.operation(@root.name,false))
                 return until ops
                 ops.map do |c|
+                    next if c.ignore?
                     ch = OperationHelper.new(c)
                     @type_constructor_wrapper.result(ch.binding)
                 end.join("\n")
             end
 
-            def add_consts
-                @root.consts.map do |c|
+            def add_consts(root=@root)
+                str = @root.consts.map do |c|
+                    next if c.extern? || c.ignore?
                     "    #{c.name} = #{GeneratorRuby::normalize_type_name(c.value)}\n"
                 end.join
-            end
+                return str unless @compact_namespace
 
-            def add_methods
-                str = ""
-                @root.operations.each do |ops|
-                    ops.each do |op|
-                        next if op.constructor?
-                        oph = OperationHelper.new(op)
-                        str += if op.instance_method?
-                                   @method_wrapper.result(oph.binding)
-                               else
-                                   @static_method_wrapper.result(oph.binding)
-                               end
-                    end
+                root.each_type(false) do |t|
+                    next if t.basic_type? && !t.is_a?(RNamespace)
+                    str += add_consts(t) if name == GeneratorRuby.normalize_type_name(t.full_name)
                 end
                 str
             end
 
-            def add_types
+            def add_methods(root=@root)
                 str = ""
-                @root.each_type(false) do |t|
+                @root.each_operation do |op|
+                    next if op.constructor?
+                    oph = OperationHelper.new(op)
+                    str += if op.instance_method?
+                               @method_wrapper.result(oph.binding)
+                           else
+                               @static_method_wrapper.result(oph.binding)
+                           end
+                end
+                return str unless @compact_namespace
+
+                root.each_type(false) do |t|
                     next if t.basic_type? && !t.is_a?(RNamespace)
-                    t = RTypeHelper.new(t.name,t)
-                    str += t.result
+                    str += add_methods(t) if name == GeneratorRuby.normalize_type_name(t.full_name)
+                end
+                str
+            end
+
+            def add_types(root = @root)
+                str = ""
+                root.each_type(false) do |t|
+                    next if t.basic_type? && !t.is_a?(RNamespace)
+                    str += if @compact_namespace && name == GeneratorRuby.normalize_type_name(t.full_name)
+                        add_types(t)
+                    else
+                        RTypeHelper.new(t.name,t).result
+                    end
                 end
                 str
             end
@@ -317,6 +365,7 @@ module Rbind
             end
 
             def result
+                return "" if @root.extern?
                 str = if @root.is_a? RStruct
                           @type_wrapper.result(self.binding)
                       else
@@ -332,27 +381,34 @@ module Rbind
         end
 
         attr_accessor :module_name
+        attr_accessor :required_module_names
         attr_accessor :library_name
         attr_accessor :output_path
+        attr_accessor :file_prefix
+        attr_accessor :compact_namespace
+        attr_reader :root
 
+        def file_prefix
+            @file_prefix || GeneratorRuby.normalize_method_name(module_name)
+        end
 
         def initialize(root,module_name ="Rbind",library_name="rbind_lib")
             @root = root
             @rbind_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rbind.rb")).read)
             @module_name = module_name
             @library_name = library_name
+            @compact_namespace = false
         end
 
         def generate(path=@output_path)
             @output_path = path
             FileUtils.mkdir_p(path) if path  && !File.directory?(path)
-            file_rbind = File.new(File.join(path,"opencv.rb"),"w")
-            file_types = File.new(File.join(path,"opencv_types.rb"),"w")
+            file_rbind = File.new(File.join(path,"#{file_prefix}.rb"),"w")
+            file_types = File.new(File.join(path,"#{file_prefix}_types.rb"),"w")
 
-            types = RTypeHelper.new(@module_name,@root)
+            types = RTypeHelper.new(@module_name,@root,compact_namespace)
             file_types.write types.result
-            rbind = RBindHelper.new(@module_name,@root)
-            rbind.library_name = @library_name
+            rbind = RBindHelper.new(@module_name,self,compact_namespace)
             file_rbind.write @rbind_wrapper.result(rbind.binding)
         end
     end
