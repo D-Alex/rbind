@@ -4,7 +4,10 @@ PROJECT(<%= library_name %> CXX)
 include(FindPkgConfig)
 <%= find_packages %>
 
-SET(RBIND_SRC types.cc operations.cc conversions.cc)
+SET(RBIND_SRC
+    "${CMAKE_CURRENT_SOURCE_DIR}/types.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/operations.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/conversions.cc")
 ADD_LIBRARY(<%= library_name %> SHARED ${RBIND_SRC})
 
 TARGET_LINK_LIBRARIES(<%= library_name %> <%= libs %>)
