@@ -34,15 +34,30 @@ module Rbind
                           normalize_type_name(parameter.default_value)
                       end
                   else
-                      if(parameter.default_value =~ /(\w*)\((.*)\)/)
+                      if(parameter.default_value =~ /([\w:]*) *\((.*)\)/)
                           t = parameter.owner.owner.type($1,false)
-                          if t
-                              "#{normalize_type_name(t.full_name)}.new(#{$2})"
-                          else
-                              ns = RBase.namespace($1)
-                              t = parameter.owner.owner.type(ns,false) if ns
-                              ops = Array(t.operation($1,false)) if t
-                              "#{normalize_method_name(ops.first.full_name)}(#{$2})" if ops && !ops.empy?
+                          ops = Array(parameter.owner.owner.operation($1,false)) if !t
+                          t,ops = if t || !ops.empty?
+                                      [t,ops]
+                                  else
+                                      ns = RBase.namespace($1)
+                                      name = RBase.basename($1)
+                                      if ns && name
+                                          t = parameter.owner.owner.type(ns,false) 
+                                          ops = Array(t.operation(name,false)) if t
+                                          [t,ops]
+                                      else
+                                          [nil,nil]
+                                      end
+                                  end
+                          if ops && !ops.empty?
+                              if t
+                                "#{normalize_type_name(t.full_name)}::#{normalize_method_name(ops.first.name)}(#{($2)})"
+                              else
+                                "#{normalize_method_name(ops.first.name)}(#{($2)})"
+                              end
+                          elsif t
+                              "#{normalize_type_name(t.full_name)}.new(#{($2)})"
                           end
                       else
                           parameter.default_value
@@ -84,19 +99,25 @@ module Rbind
             end
         end
 
-        def self.normalize_method_name(name)
-            name = name.to_s.gsub(/\A#{RBase.cprefix}?/, "").gsub(/(?<!\A)\p{Lu}/u, '_\0').downcase
-            str = ""
-            name.split("_").each_with_index do |n,i|
-                next if n.empty?
-                if n.size == 1 && i > 1
-                    str += n
-                else
-                    str += "_#{n}"
-                end
-            end
-            str = str[1..-1] #remove leading "_"
-            str = if str =~/^operator(.*)/
+        # normalize c method to meet ruby conventions
+        # see unit tests
+        def self.normalize_method_name(orig_name)
+            #remove cprefix and replaced _X with #X
+            name = orig_name.to_s.gsub(/\A#{RBase.cprefix}/, "") .gsub(/_((?<!\A)\p{Lu})/u, '#\1')
+            #replaced X with _x
+            name = name.gsub(/(?<!\A)[\p{Lu}\d]/u, '_\0').downcase
+            #replaced _x_ with #x#
+            name = name.to_s.gsub(/[_#]([a-zA-Z\d])[_#]/u, '#\1#')
+            #replaced _x$ with #x
+            name = name.to_s.gsub(/[_#]([a-zA-Z\d])$/u, '#\1')
+            #replaced ## with _
+            name = name.gsub(/##/, '_')
+            #replace #xx with _xx
+            name = name.gsub(/#([a-zA-Z\d]{2})/, '_\1')
+            #remove all remaining #
+            name = name.gsub(/#/, '')
+            #replace operatorX with the correct ruby operator
+            name = if name =~/^operator(.*)/
                         n = $1
                         if n =~ /\(\)/
                             raise "forbbiden method name #{name}"
@@ -118,8 +139,10 @@ module Rbind
                             n
                         end
                    else
-                       str
+                      name
                    end
+            raise "generated empty name for #{orig_name}" if name.empty?
+            name
         end
 
         class HelperBase
@@ -294,12 +317,17 @@ module Rbind
                 GeneratorRuby.normalize_method_name(@root.cdelete_method)
             end
 
-            def add_specializing
-                if @root.respond_to?(:specialize_ruby)
-                    @root.specialize_ruby
-                else
-                    nil
+            def add_specializing(root = @root)
+                str = if @root.respond_to?(:specialize_ruby)
+                    root.specialize_ruby
+                else 
+                    ""
                 end
+                root.each_type(false) do |t|
+                    next if t.basic_type? && !t.is_a?(RNamespace)
+                    str += add_specialize(t) if name == GeneratorRuby.normalize_type_name(t.full_name)
+                end
+                str
             end
 
             def add_constructor
