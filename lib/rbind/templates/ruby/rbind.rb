@@ -34,6 +34,9 @@ module <%= name %>
                                 raise except
                             end
                             val
+                        rescue
+                            $@.delete_if{|s| %r"#{Regexp.quote(__FILE__)}"o =~ s}
+                            Kernel.raise
                         end
             }
             instance_eval(str,__FILE__,line_no)
