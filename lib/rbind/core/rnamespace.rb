@@ -4,7 +4,7 @@ module Rbind
         class << self
             attr_accessor :default_type_names
         end
-        self.default_type_names = [:uint64,:int,:int64,:bool,:double,:float,:void,:char,:size_t,:uint8_t]
+        self.default_type_names = [:int,:int8,:int32,:int64,:uint,:uint8,:uint32,:uint64,:int8_t,:int32_t,:int64_t,:uint8_t,:uint32_t,:uint64_t,:bool,:double,:float,:void,:char,:size_t]
 
         attr_reader :operations
         attr_reader :operation_alias
