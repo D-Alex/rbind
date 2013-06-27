@@ -18,10 +18,10 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/<%= library_name %>.pc DESTINATION lib
 install(TARGETS <%= library_name %> LIBRARY DESTINATION lib)
 install(FILES types.h operations.h conversions.hpp DESTINATION include/${PROJECT_NAME}/${DIR})
 
-if (EXISTS ${PROJECT_SOURCE_DIR}/extern.rbind)
-    install(FILES ${PROJECT_SOURCE_DIR}/extern.rbind DESTINATION include/${PROJECT_NAME}/${DIR})
+if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/extern.rbind)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/extern.rbind DESTINATION include/${PROJECT_NAME}/${DIR})
 endif()
 
-if (EXISTS ${PROJECT_SOURCE_DIR}/config.rbind)
-    install(FILES ${PROJECT_SOURCE_DIR}/config.rbind DESTINATION include/${PROJECT_NAME}/${DIR})
+if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/config.rbind)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/config.rbind DESTINATION include/${PROJECT_NAME}/${DIR})
 endif()
