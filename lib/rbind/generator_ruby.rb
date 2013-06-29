@@ -4,6 +4,9 @@ require 'erb'
 
 module Rbind
     class GeneratorRuby
+        @@ruby_default_value_map ||= {"true" => "true","TRUE" => "true", "false" => "false","FALSE" => "false"}
+        @@ffi_type_map ||= {"char *" => "string","unsigned char" => "uchar" ,"const char *" => "string" }
+
         def self.keyword?(name)
             %w{__FILE__ __LINE__ alias and begin BEGIN break case class def defined? do else elsif end END ensure false for if in module next nil not or redo rescue retry return self super then true undef unless until when while yield}.include? name
         end
@@ -26,10 +29,12 @@ module Rbind
         def self.normalize_default_value(parameter)
             return nil unless parameter.default_value
             val = if parameter.type.basic_type? || parameter.type.ptr?
-                      if parameter.type.name == "float"
+                      if @@ruby_default_value_map.has_key?(parameter.default_value)
+                          @@ruby_default_value_map[parameter.default_value]
+                      elsif parameter.type.name == "float"
                           parameter.default_value.gsub("f","")
                       elsif parameter.type.name == "double"
-                          parameter.default_value.gsub(/\.$/,".0")
+                          parameter.default_value.gsub(/\.$/,".0").gsub(/^\./,"0.")
                       else
                           normalize_type_name(parameter.default_value)
                       end
@@ -72,6 +77,9 @@ module Rbind
 
 
         def self.normalize_type_name(name)
+            if name =~ /^u?int\d*$/ || name =~ /^u?int\d+_t$/
+                return "Fixnum"
+            end
             names = name.split("::").map do |n|
                 n.gsub(/^(\w)(.*)/) do 
                     $1.upcase+$2
@@ -88,9 +96,8 @@ module Rbind
             end.join("")
         end
 
-        def self.normalize_basic_type_name(name)
-            @@basic_type_map ||= {"char *" => "string","unsigned char" => "uchar" ,"const char *" => "string" }
-            n = @@basic_type_map[name]
+        def self.normalize_basic_type_name_ffi(name)
+            n = @@ffi_type_map[name]
             n ||= name
             if n =~ /\*/
                 "pointer"
@@ -179,7 +186,7 @@ module Rbind
             end
 
             def normalize_bt(name)
-                GeneratorRuby.normalize_basic_type_name name
+                GeneratorRuby.normalize_basic_type_name_ffi name
             end
 
             def normalize_m(name)
@@ -248,6 +255,26 @@ module Rbind
 
         class RTypeHelper < HelperBase
             class OperationHelper < SimpleDelegator
+                def min_number_of_parameters
+                    count = 0
+                    parameters.each do |p|
+                        break if p.default_value
+                        count +=1
+                    end
+                    count
+                end
+
+                def signature_default_values
+                    str = parameters.map do |p|
+                        if p.default_value 
+                            GeneratorRuby.normalize_default_value p
+                        else
+                            "nil"
+                        end
+                    end.join(", ")
+                    "[#{str}]"
+                end
+
                 def wrap_parameters_signature
                     parameters.map do |p|
                         n = GeneratorRuby.normalize_arg_name p.name
@@ -256,11 +283,6 @@ module Rbind
                         else
                             n
                         end
-                    end.join(", ")
-                rescue RuntimeError
-                    ::Rbind.log.warn "ignoring all default parameter values for #{full_name} because of missing definitions."
-                    parameters.map do |p|
-                        GeneratorRuby.normalize_arg_name p.name
                     end.join(", ")
                 end
 
@@ -295,12 +317,42 @@ module Rbind
                 end
             end
 
+            class OverloadedOperationHelper < HelperBase
+                def initialize(root)
+                    raise "expect an array of methods but got #{root}" if root.size < 1
+                    super(GeneratorRuby.normalize_method_name(root.first.alias || root.first.name),root)
+                    @overload_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","roverloaded_method_call.rb")).read,nil,"-")
+                end
+
+                def add_method_calls
+                    str = @root.map do |method|
+                        next if method.ignore?
+                        raise "Cannot overload attributes" if method.attribute?
+                        op = if method.is_a? OperationHelper
+                                 method
+                             else
+                                 OperationHelper.new(method)
+                             end
+                        if name != op.name
+                            raise "Wrong method name #{method.name} is not an overloaded method of #{name}"
+                        end
+                        @overload_wrapper.result(op.binding)
+                    end.join("\n")
+                end
+
+                def binding
+                    Kernel.binding
+                end
+            end
+
             def initialize(name, root,compact_namespace = false)
                 @type_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rtype.rb")).read,nil,"-")
-                @type_constructor_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rtype_constructor.rb")).read,nil,"-")
                 @namespace_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rnamespace.rb")).read,nil,"-")
                 @static_method_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rstatic_method.rb")).read)
                 @method_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rmethod.rb")).read,nil,'-')
+                @overloaded_method_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","roverloaded_method.rb")).read,nil,"-")
+                @overloaded_static_method_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","roverloaded_static_method.rb")).read,nil,"-")
+                @overloaded_method_call_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","roverloaded_method_call.rb")).read,nil,"-")
                 @compact_namespace = compact_namespace
                 super(name,root)
             end
@@ -319,10 +371,10 @@ module Rbind
 
             def add_specializing(root = @root)
                 str = if @root.respond_to?(:specialize_ruby)
-                    root.specialize_ruby
-                else 
-                    ""
-                end
+                          root.specialize_ruby
+                      else
+                          ""
+                      end
                 root.each_type(false) do |t|
                     next if t.basic_type? && !t.is_a?(RNamespace)
                     str += add_specialize(t) if name == GeneratorRuby.normalize_type_name(t.full_name)
@@ -333,11 +385,10 @@ module Rbind
             def add_constructor
                 raise "there is no constructor for namespaces!" if self.is_a?(RNamespace)
                 ops = Array(@root.operation(@root.name,false))
-                return until ops
                 ops.map do |c|
                     next if c.ignore?
                     ch = OperationHelper.new(c)
-                    @type_constructor_wrapper.result(ch.binding)
+                    @overloaded_method_call_wrapper.result(ch.binding)
                 end.join("\n")
             end
 
@@ -356,18 +407,39 @@ module Rbind
             end
 
             def add_methods(root=@root)
+                # sort all method according their target name
+                ops = Hash.new do |h,k|
+                    h[k] = Array.new
+                end
+                root.each_operation do |op|
+                    next if op.constructor? || op.ignore?
+                    op = OperationHelper.new(op)
+                    if op.instance_method?
+                        ops["rbind_instance_#{op.name}"] << op
+                    else
+                        ops["rbind_static_#{op.name}"] << op
+                    end
+                end
+                # render method
                 str = ""
-                @root.each_operation do |op|
-                    next if op.constructor?
-                    oph = OperationHelper.new(op)
-                    str += if op.instance_method?
-                               @method_wrapper.result(oph.binding)
-                           else
-                               @static_method_wrapper.result(oph.binding)
-                           end
+                ops.each_value do |o|
+                    if o.size == 1
+                        op = o.first
+                        str += if op.instance_method?
+                                   @method_wrapper.result(op.binding)
+                               else
+                                   @static_method_wrapper.result(op.binding)
+                               end
+                    else
+                        helper = OverloadedOperationHelper.new(o)
+                        str += if o.firts.instance_method?
+                                   @overloaded_method_wrapper.result(helper.binding)
+                               else
+                                   @overloaded_static_method_wrapper.result(helper.binding)
+                               end
+                    end
                 end
                 return str unless @compact_namespace
-
                 root.each_type(false) do |t|
                     next if t.basic_type? && !t.is_a?(RNamespace)
                     str += add_methods(t) if name == GeneratorRuby.normalize_type_name(t.full_name)
