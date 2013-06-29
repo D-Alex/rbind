@@ -304,7 +304,12 @@ module Rbind
                             "#{name}="
                         end
                     else
-                        GeneratorRuby.normalize_method_name(__getobj__.alias || __getobj__.name)
+                        name = if auto_alias
+                                   __getobj__.name
+                               else
+                                   __getobj__.alias || __getobj__.name
+                               end
+                        GeneratorRuby.normalize_method_name(name)
                     end
                 end
 
@@ -324,7 +329,7 @@ module Rbind
                     @overload_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","roverloaded_method_call.rb")).read,nil,"-")
                 end
 
-                def add_method_calls
+                def add_methods
                     str = @root.map do |method|
                         next if method.ignore?
                         raise "Cannot overload attributes" if method.attribute?
@@ -333,9 +338,6 @@ module Rbind
                              else
                                  OperationHelper.new(method)
                              end
-                        if name != op.name
-                            raise "Wrong method name #{method.name} is not an overloaded method of #{name}"
-                        end
                         @overload_wrapper.result(op.binding)
                     end.join("\n")
                 end
@@ -411,9 +413,9 @@ module Rbind
                 ops = Hash.new do |h,k|
                     h[k] = Array.new
                 end
-                root.each_operation do |op|
-                    next if op.constructor? || op.ignore?
-                    op = OperationHelper.new(op)
+                root.each_operation do |o|
+                    next if o.constructor? || o.ignore?
+                    op = OperationHelper.new(o)
                     if op.instance_method?
                         ops["rbind_instance_#{op.name}"] << op
                     else
@@ -432,7 +434,7 @@ module Rbind
                                end
                     else
                         helper = OverloadedOperationHelper.new(o)
-                        str += if o.firts.instance_method?
+                        str += if o.first.instance_method?
                                    @overloaded_method_wrapper.result(helper.binding)
                                else
                                    @overloaded_static_method_wrapper.result(helper.binding)

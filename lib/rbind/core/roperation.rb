@@ -6,6 +6,7 @@ module Rbind
         attr_accessor :cparameters
         attr_accessor :base_class
         attr_accessor :ambiguous_name
+        attr_accessor :index            # index if overloaded
 
         def initialize(name,return_type,*args)
             super(name)

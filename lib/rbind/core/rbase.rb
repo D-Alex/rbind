@@ -3,6 +3,7 @@ module Rbind
         attr_accessor :name
         attr_accessor :cname
         attr_accessor :alias
+        attr_accessor :auto_alias # set to true if rbind is aliasing the object
         attr_accessor :namespace
         attr_accessor :owner
         attr_accessor :flags

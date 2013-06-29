@@ -1,8 +1,8 @@
         # wrapper for <%= signature %>
-        @@rbind_<%=name%>_sig_defaults ||= <%= signature_default_values %>
+        @@rbind_<%=name%>_sig_defaults<%= index %> ||= <%= signature_default_values %>
         if(args.size >= <%= min_number_of_parameters %> && args.size <= <%= parameters.size %>)
             args.size.upto(<%= parameters.size-1%>) do |i|
-                args[i] = @@rbind_<%=name%>_sig_defaults[i]
+                args[i] = @@rbind_<%=name%>_sig_defaults<%=index%>[i]
             end
             begin
                 <%- if !return_type || return_type.basic_type? || operator? -%>
