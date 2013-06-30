@@ -6,9 +6,17 @@
             end
             begin
                 <%- if !return_type || return_type.basic_type? || operator? -%>
+                    <%- if constructor? || !instance_method? -%>
                 return Rbind::<%= cname %>(*args)
+                    <%- else -%>
+                return Rbind::<%= cname %>(self,*args)
+                    <%- end -%>
                 <%- else -%>
+                    <%- if instance_method? -%>
+                result = Rbind::<%= cname %>(self,*args)
+                    <%- else -%>
                 result = Rbind::<%= cname %>(*args)
+                    <%- end -%>
                 # store owner insight the pointer to not get garbage collected
                 result.instance_variable_get(:@__obj_ptr__).instance_variable_set(:@__owner__,self) if !result.__owner__?
                 return result
