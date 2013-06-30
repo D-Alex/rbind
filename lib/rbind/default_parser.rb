@@ -23,7 +23,8 @@ module Rbind
         end
 
         def normalize_default_value(value)
-            val = value.gsub(/(.?)std::vector<(.*)>/,'\1vector_\2')
+            value = value.gsub(/std::vector</,"vector<")
+            val = value.gsub(/(.?)vector<(.*)>/,'\1vector_\2')
             if value != val
                 normalize_default_value(val)
             else

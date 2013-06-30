@@ -11,10 +11,12 @@ module Rbind
         attr_reader :consts
         attr_reader :used_namespaces
         attr_accessor :root
+        attr_accessor :types_alias
 
         def initialize(name,*flags)
             @consts = Hash.new
             @types = Hash.new
+            @types_alias = Hash.new
             @operations = Hash.new{|hash,key| hash[key] = Array.new}
             @operation_alias = Hash.new{|hash,key| hash[key] = Array.new}
             @used_namespaces = Hash.new
@@ -249,6 +251,12 @@ module Rbind
                 t.add_type(type)
             else
                 type.owner = self
+                if type.alias
+                    if type(type.alias,false,false)
+                        raise ArgumentError,"A type with the name alias #{type.alias} already exists"
+                    end
+                    @types_alias[type.alias] = type
+                end
                 @types[type.name] = type
             end
             type
@@ -264,6 +272,8 @@ module Rbind
             name = name.chomp(" ")
             t = if @types.has_key?(name)
                     @types[name]
+                elsif @types_alias.has_key?(name)
+                    @types_alias[name]
                 else
                     if !!(ns = RBase.namespace(name))
                         ns = ns.split("::")

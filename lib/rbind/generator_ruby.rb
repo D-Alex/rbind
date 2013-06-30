@@ -80,6 +80,7 @@ module Rbind
             if name =~ /^u?int\d*$/ || name =~ /^u?int\d+_t$/
                 return "Fixnum"
             end
+            name = name.gsub(/^_/,"")
             names = name.split("::").map do |n|
                 n.gsub(/^(\w)(.*)/) do 
                     $1.upcase+$2
