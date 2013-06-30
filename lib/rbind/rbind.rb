@@ -8,6 +8,7 @@ module Rbind
         attr_accessor :includes
         attr_accessor :name
         attr_accessor :pkg_config
+        attr_accessor :gems
 
         def self.pkg_paths(pkg_name)
             out = IO.popen("pkg-config --cflags-only-I #{pkg_name}")
@@ -22,6 +23,14 @@ module Rbind
             pkg_names.find_all do |p|
                 !!(p =~ /^rbind_.*/)
             end
+        end
+
+        def self.gem_path(gem_name)
+            out = IO.popen("gem contents #{gem_name}")
+            out.readlines.each do |line|
+                return $1 if line =~ /(.*)extern.rbind/
+            end
+            raise "Cannot find paths for gem #{gem_name}"
         end
 
         def self.rbind_pkg_paths(pkg_names)
@@ -40,6 +49,7 @@ module Rbind
             @name = name
             @includes = []
             @pkg_config = []
+            @gems = []
             @parser = DefaultParser.new
             lib_name = "rbind_#{name.downcase}"
             @generator_c = GeneratorC.new(@parser,lib_name)
@@ -81,6 +91,13 @@ module Rbind
                 config = YAML.load(File.open(File.join(pkg,"config.rbind")).read)
                 path = File.join(pkg,"extern.rbind")
                 ::Rbind.log.info "parsing extern rbind pkg file #{path}"
+                parser.parse(File.open(path).read,config.ruby_module_name)
+            end
+            @gems.each do |gem|
+                path = Rbind.gem_path(gem)
+                config = YAML.load(File.open(File.join(path,"config.rbind")).read)
+                path = File.join(path,"extern.rbind")
+                ::Rbind.log.info "parsing extern gem file #{path}"
                 parser.parse(File.open(path).read,config.ruby_module_name)
             end
         end
@@ -135,7 +152,7 @@ module Rbind
                 config = YAML.load(File.open(File.join(pkg,"config.rbind")).read)
                 config.ruby_module_name
             end
-            @generator_ruby.required_module_names = modules
+            @generator_ruby.required_module_names = modules + gems
             @generator_ruby.generate(path)
         end
 
@@ -143,6 +160,7 @@ module Rbind
             ::Rbind.log.info "generate c wrappers"
             @generator_c.includes = includes
             @generator_c.pkg_config = pkg_config
+            @generator_c.gems = gems
             @generator_c.generate(path)
         end
 

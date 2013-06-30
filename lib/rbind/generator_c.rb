@@ -286,6 +286,7 @@ module Rbind
        attr_accessor :library_name
        attr_accessor :libs
        attr_accessor :pkg_config
+       attr_accessor :gems
        attr_accessor :generate_cmake
        attr_accessor :output_path
 
@@ -304,6 +305,7 @@ module Rbind
            @erb_pkg_config = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","rbind.pc.in")).read)
            @includes = Array.new
            @pkg_config= Array.new
+           @gems = Array.new
            @library_name = library_name
            @generate_cmake = true
            @libs = []
@@ -320,10 +322,16 @@ module Rbind
            file_conversions = File.new(File.join(path,"conversions.cc"),"w")
            file_conversions_hdr = File.new(File.join(path,"conversions.hpp"),"w")
            rbind_pkgs = Rbind.rbind_pkgs(@pkg_config)
+           gem_paths = @gems.map do |gem|
+               Rbind.gem_path(gem)
+           end
 
            types_hdr = TypesHelperHDR.new("_#{library_name.upcase}_TYPES_H_",@root)
            types_hdr.includes = rbind_pkgs.map do |p|
                "<#{p}/types.h>"
+           end
+           types_hdr.includes += gem_paths.map do |gem|
+               "<#{gem}/types.h>"
            end
            file_types_hdr.write @erb_types_hdr.result(types_hdr.binding)
 
@@ -334,6 +342,9 @@ module Rbind
            consts.includes = rbind_pkgs.map do |p|
                "<#{p}/constants.h>"
            end
+           consts.includes += gem_paths.map do |gem|
+               "<#{gem}/constants.h>"
+           end
            file_consts.write @erb_consts.result(consts.binding)
 
            conversions_hdr = ConversionsHelperHDR.new("#{library_name.upcase}_CONVERSIONS_H_",@root)
@@ -341,6 +352,9 @@ module Rbind
                "<#{p}/conversions.hpp>"
            end
            conversions_hdr.includes += includes
+           conversions_hdr.includes += gem_paths.map do |gem|
+               "<#{gem}/conversions.hpp>"
+           end
            file_conversions_hdr.write @erb_conversions_hdr.result(conversions_hdr.binding)
 
            conversions = ConversionsHelper.new("conversions",@root)
@@ -354,7 +368,10 @@ module Rbind
 
            if generate_cmake && !File.exist?(File.join(path,"CMakeLists.txt"))
                file_cmakelists = File.new(File.join(path,"CMakeLists.txt"),"w")
-               cmakelists = CMakeListsHelper.new(@library_name,@pkg_config,@libs)
+               libs = gem_paths.map do |path|
+                   Dir.glob(File.join(path,"lib*"))
+               end
+               cmakelists = CMakeListsHelper.new(@library_name,@pkg_config,@libs+libs)
                file_cmakelists.write @erb_cmakelists.result(cmakelists.binding)
                if !File.exist?(File.join(path,"rbind.pc.in"))
                    file_pkg_config = File.new(File.join(path,"rbind.pc.in"),"w")
