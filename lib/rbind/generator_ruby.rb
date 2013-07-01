@@ -4,11 +4,21 @@ require 'erb'
 
 module Rbind
     class GeneratorRuby
-        @@ruby_default_value_map ||= {"true" => "true","TRUE" => "true", "false" => "false","FALSE" => "false"}
-        @@ffi_type_map ||= {"char *" => "string","unsigned char" => "uchar" ,"const char *" => "string" }
+        class << self
+            attr_accessor :ruby_default_value_map
+            attr_accessor :on_normalize_type_name
+            attr_accessor :ffi_type_map
+        end
+        self.ruby_default_value_map ||= {"true" => "true","TRUE" => "true", "false" => "false","FALSE" => "false"}
+        self.ffi_type_map ||= {"char *" => "string","unsigned char" => "uchar" ,"const char *" => "string" }
+
 
         def self.keyword?(name)
             %w{__FILE__ __LINE__ alias and begin BEGIN break case class def defined? do else elsif end END ensure false for if in module next nil not or redo rescue retry return self super then true undef unless until when while yield}.include? name
+        end
+
+        def self.on_normalize_type_name(&block)
+            self.on_normalize_type_name = block
         end
 
         def self.normalize_arg_name(name)
@@ -29,8 +39,8 @@ module Rbind
         def self.normalize_default_value(parameter)
             return nil unless parameter.default_value
             val = if parameter.type.basic_type? || parameter.type.ptr?
-                      if @@ruby_default_value_map.has_key?(parameter.default_value)
-                          @@ruby_default_value_map[parameter.default_value]
+                      if ruby_default_value_map.has_key?(parameter.default_value)
+                          ruby_default_value_map[parameter.default_value]
                       elsif parameter.type.name == "float"
                           parameter.default_value.gsub("f","")
                       elsif parameter.type.name == "double"
@@ -77,6 +87,12 @@ module Rbind
 
 
         def self.normalize_type_name(name)
+            # custom normalization
+            if @on_normalize_type_name
+                n = @on_normalize_type_name.call(name)
+                return n if n
+            end
+
             if name =~ /^u?int\d*$/ || name =~ /^u?int\d+_t$/
                 return "Fixnum"
             end
@@ -98,7 +114,7 @@ module Rbind
         end
 
         def self.normalize_basic_type_name_ffi(name)
-            n = @@ffi_type_map[name]
+            n = ffi_type_map[name]
             n ||= name
             if n =~ /\*/
                 "pointer"
@@ -172,7 +188,7 @@ module Rbind
         class RBindHelper < HelperBase
             attr_reader :compact_namespace
 
-            def initialize(name, root,compact_namespace=false)
+            def initialize(name, root,compact_namespace=true)
                 @compact_namespace = compact_namespace
                 super(name,root)
             end
