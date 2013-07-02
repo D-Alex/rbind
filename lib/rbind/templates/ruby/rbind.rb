@@ -8,7 +8,7 @@ module <%= name %>
         extend FFI::Library
 
         #load library <%= library_name %>
-        path = Dir.chdir(File.dirname(__FILE__)) do
+        path = Dir.chdir(File.join(File.dirname(__FILE__),"..","..","lib")) do
             path = Dir.glob("lib<%= library_name %>.*").first
             File.absolute_path(path) if path
         end

@@ -258,9 +258,11 @@ module Rbind
        end
 
        class CMakeListsHelper < HelperBase
-           def initialize(name,pkg_config=Array.new,libs=Array.new)
+           def initialize(name,pkg_config=Array.new,libs=Array.new,gems=Array.new)
                super(name,pkg_config)
                @libs = libs
+               @gems = gems
+               @find_gem = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","find_gem.txt")).read)
                @find_package = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","find_package.txt")).read)
            end
 
@@ -268,6 +270,10 @@ module Rbind
                @root.map do |pkg|
                     @find_package.result(pkg.instance_eval("binding"))
                end.join("")
+           end
+
+           def find_gems
+               @find_gem.result(@gems.instance_eval("binding")) unless @gems.empty?
            end
 
            def libs
@@ -368,15 +374,18 @@ module Rbind
 
            if generate_cmake && !File.exist?(File.join(path,"CMakeLists.txt"))
                file_cmakelists = File.new(File.join(path,"CMakeLists.txt"),"w")
-               libs = gem_paths.map do |path|
-                   Dir.glob(File.join(path,"lib*"))
-               end
-               cmakelists = CMakeListsHelper.new(@library_name,@pkg_config,@libs+libs)
+               cmakelists = CMakeListsHelper.new(@library_name,@pkg_config,@libs,@gems)
                file_cmakelists.write @erb_cmakelists.result(cmakelists.binding)
                if !File.exist?(File.join(path,"rbind.pc.in"))
                    file_pkg_config = File.new(File.join(path,"rbind.pc.in"),"w")
                    file_pkg_config.write @erb_pkg_config.result(Kernel.binding)
                end
+
+               src_path = File.join(File.dirname(__FILE__),"templates","c","cmake")
+               cmake_path = File.join(path,"cmake")
+               FileUtils.mkdir_p(cmake_path) if !File.directory?(cmake_path)
+               FileUtils.copy(File.join(src_path,"FindGem.cmake"),File.join(cmake_path,"FindGem.cmake"))
+               FileUtils.copy(File.join(src_path,"FindRuby.cmake"),File.join(cmake_path,"FindRuby.cmake"))
            end
        end
    end
