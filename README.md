@@ -1,4 +1,4 @@
-# Library for automatically genereating ffi-bindings for c/c++ libraries'
+# Library for automatically genereating ffi-bindings for c/c++ libraries
 
 Rbind is developed to automatically generate ruby bindings for OpenCV but is
 not tight to this library. It allows to import already wrapped types from other
@@ -103,6 +103,41 @@ under heavy development and the API might change in the future.
     rbind.generator_ruby.file_prefix = "ropencv"
     rbind.generate(File.join(File.dirname(__FILE__),"src"),File.join(File.dirname(__FILE__),"..","lib","ruby","ropencv"))
 
+## file opencv.txt
+    ...
+    class cv.RNG
+        uint64 state
+    cv.RNG.RNG
+    cv.RNG.RNG
+        uint64 state
+    cv.RNG.uniform int
+        int a
+        int b
+    cv.RNG.uniform float 
+        float a
+        float b
+    cv.RNG.uniform double 
+        double a
+        double b
+    cv.RNG.fill void
+        Mat mat /IO
+        int distType
+        Mat a
+        Mat b
+        bool saturateRange false
+    cv.RNG.gaussian double
+        double sigma
+
+## file opencv_test.rb
+    require 'ropencv'
+    include OpenCV
+
+    scalar = cv::Scalar.new(1,0,0,0)
+    scalar[2] = 2
+    puts scalar[0]
+    puts scalar[1]
+    puts scalar[2]
+    puts scalar[3]
 
 # Example2
 ## file rbind.rb
@@ -152,8 +187,4 @@ under heavy development and the API might change in the future.
         ...
     }
 
-## file ruby_test.rb
-   require 'frame_helper'
-   f = FrameHelper::FrameHelper.new
-   f.convert(...)
 
