@@ -17,9 +17,8 @@ ADD_LIBRARY(<%= library_name %> SHARED ${RBIND_SRC})
 TARGET_LINK_LIBRARIES(<%= library_name %> <%= libs %> ${GEM_LIBRARIES})
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/rbind.pc.in ${CMAKE_CURRENT_BINARY_DIR}/<%= library_name %>.pc @ONLY)
-set(ROOT_FOLDER ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
-# global install
+set(ROOT_FOLDER ${CMAKE_CURRENT_SOURCE_DIR}/..)
 if(GEM_INSTALL)
     # local install
     install(TARGETS <%= library_name %> LIBRARY DESTINATION ${ROOT_FOLDER}/lib/lib)

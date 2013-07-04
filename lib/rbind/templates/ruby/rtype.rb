@@ -1,3 +1,4 @@
+# @api private
 # object wrapping <%= full_name %>
 class <%= name %>Struct < FFI::Struct
     layout :version,:uchar,
@@ -26,6 +27,7 @@ class <%= name %>
         raise ArgumentError, "no constructor for #{self}(#{args.inspect})"
     end
 
+    # @api private
     def self.rbind_to_native(obj,context)
         if obj.is_a? <%= name %>
             obj.__obj_ptr__
@@ -34,21 +36,27 @@ class <%= name %>
         end
     end
 
+    # @api private
     def self.rbind_from_native(ptr,context)
         <%= name %>.new(ptr)
     end
 
+    # @api private
     # can be overwritten by the user
     def self.to_native(obj,context)
         rbind_to_native(obj,context)
     end
 
+    # @api private
     # can be overwritten by the user
     def self.from_native(ptr,context)
         rbind_from_native(ptr,context)
     end
 
+    # @api private
     attr_reader :__obj_ptr__
+
+    # @api private
     def initialize(ptr)
         @__obj_ptr__ = if ptr.is_a? <%= name %>Struct
                            ptr
@@ -57,20 +65,24 @@ class <%= name %>
                        end
     end
 
+    # @api private
     # returns true if the underlying pointer is owner of
     # the real object
     def __owner__?
         @__obj_ptr__[:bowner]
     end
 
-    # custom specializing
+    # @!group Sepcializing
 <%= add_specializing %>
+    # @!endgroup
 
-    # consts
+    # @!group Constants
 <%= add_consts %>
+    # @!endgroup
 
     # methods
 <%= add_methods %>
+
     # types
 <%= add_types %>
 end
