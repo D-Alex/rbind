@@ -516,7 +516,7 @@ module Rbind
             @rbind_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rbind.rb")).read)
             @module_name = module_name
             @library_name = library_name
-            @compact_namespace = false
+            @compact_namespace = true
         end
 
         def generate(path=@output_path)

@@ -150,7 +150,7 @@ module Rbind
             paths = Rbind.rbind_pkg_paths(@pkg_config)
             modules = paths.map do |pkg|
                 config = YAML.load(File.open(File.join(pkg,"config.rbind")).read)
-                config.ruby_module_name
+                config.file_prefix
             end
             @generator_ruby.required_module_names = modules + gems
             @generator_ruby.generate(path)
@@ -165,7 +165,7 @@ module Rbind
         end
 
         def generate_extern(path)
-            @generator_extern.generate(path,@generator_ruby.module_name)
+            @generator_extern.generate(path,@generator_ruby.module_name,@generator_ruby.file_prefix)
         end
 
         def use_namespace(name)
