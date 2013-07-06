@@ -19,6 +19,8 @@ module Rbind
                 name = normalize(name)
                 cn = "#{cprefix}#{name.gsub("::","_")}"
                 cn = cn.gsub("()","_fct")
+                cn = cn.gsub("<=","_smaller_equal")
+                cn = cn.gsub(">=","_greater_equal")
                 cn = cn.gsub("!=","_unequal")
                 cn = cn.gsub("==","_equal")
                 cn = cn.gsub("&=","_and_set")
@@ -30,6 +32,8 @@ module Rbind
                 cn = cn.gsub("/","_div")
                 cn = cn.gsub("!","_not")
                 cn = cn.gsub("&","_and")
+                cn = cn.gsub("<","_smaller")
+                cn = cn.gsub(">","_greater")
                 cn.gsub("[]","_array")
             end
 
