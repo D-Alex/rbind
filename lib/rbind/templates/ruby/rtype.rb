@@ -42,13 +42,24 @@ class <%= name %>
     end
 
     # @api private
-    # can be overwritten by the user
+    #
+    # Performs the convertion a Ruby representation into the FFI representation
+    #
+    # @param [Object] obj the Ruby representation
+    # @param context necessary but undocumented argument from FFI
+    # @return [FFI::Pointer,FFI::AutoPointer]
     def self.to_native(obj,context)
         rbind_to_native(obj,context)
     end
 
     # @api private
-    # can be overwritten by the user
+    # 
+    # Performs the convertion from FFI into the Ruby representation that
+    # corresponds to this type
+    #
+    # @param [FFI::Pointer,FFI::AutoPointer] ptr
+    # @param [] context
+    # @return [Object]
     def self.from_native(ptr,context)
         rbind_from_native(ptr,context)
     end
