@@ -26,6 +26,7 @@ module Rbind
         end
 
         def self.gem_path(gem_name)
+            # TODO use gem api
             out = IO.popen("gem contents #{gem_name}")
             out.readlines.each do |line|
                 return $1 if line =~ /(.*)extern.rbind/
@@ -158,7 +159,8 @@ module Rbind
 
         def generate_c(path)
             ::Rbind.log.info "generate c wrappers"
-            @generator_c.includes = includes
+            @generator_c.includes += includes
+            @generator_c.includes.uniq!
             @generator_c.pkg_config = pkg_config
             @generator_c.gems = gems
             @generator_c.generate(path)
@@ -187,6 +189,11 @@ module Rbind
 
         def libs
             @generator_c.libs
+        end
+
+        def import_std_string
+            @generator_c.includes << "<string>"
+            @parser.add_type(RString.new("std::string",@parser))
         end
 
         def method_missing(m,*args)
