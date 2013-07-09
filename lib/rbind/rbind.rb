@@ -190,7 +190,7 @@ module Rbind
         end
 
         def method_missing(m,*args)
-            t = @parser.type(m.to_s,false)
+            t = @parser.type(m.to_s,false,false)
             return t if t
 
             op = @parser.operation(m.to_s,false)
