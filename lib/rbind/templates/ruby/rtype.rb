@@ -18,6 +18,16 @@ class <%= name %>
     extend FFI::DataConverter
     native_type FFI::Type::POINTER
 
+    # @api private
+    #
+    # Returns the *Struct type that Rbind uses to store additional information
+    # about the memory used by this object
+    #
+    # @return [FFI::Struct]
+    def self.rbind_struct
+        <%= name %>Struct
+    end
+
     def self.new(*args)
         if args.first.is_a?(FFI::Pointer) || args.first.is_a?(<%= name %>Struct)
             raise ArgumentError, "too many arguments for creating #{self.name} from Pointer" unless args.size == 1
