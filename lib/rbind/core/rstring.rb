@@ -28,14 +28,14 @@ module Rbind
 %Q$         def self.to_native(obj,context)
                 if obj.is_a? ::String
                     str = obj.to_str
-                    OpenCV::Cv::String.new(str,str.length).__obj_ptr__
+                    Std::String.new(str,str.length).__obj_ptr__
                 else
                     rbind_to_native(obj,context)
                 end
             end
             def to_s
                 c_str
-            end}$
+            end$
         end
     end
 end
