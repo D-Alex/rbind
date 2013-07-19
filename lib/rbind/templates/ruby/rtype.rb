@@ -93,6 +93,11 @@ class <%= name %>
         @__obj_ptr__[:bowner]
     end
 
+    # converts <%= name %> into a string by crawling through all its attributes
+    def to_s
+        <%= add_to_s %>
+    end
+
     # @!group Sepcializing
 <%= add_specializing %>
     # @!endgroup
