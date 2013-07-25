@@ -157,6 +157,10 @@ module Clang
             result
         end
 
+        def result_type
+            Rbind::get_cursor_result_type self
+        end
+
         def kind_spelling
             Rbind::get_cursor_kind_spelling(self).to_s
         end
@@ -270,20 +274,39 @@ module Clang
         end
     end
 
-  # The type of an element in the abstract syntax tree.
-  # 
-  # = Fields:
-  # :kind ::
-  #   (Symbol from _enum_type_kind_) 
-  # :data ::
-  #   (Array<FFI::Pointer(*Void)>) 
-  class Type < FFI::Struct
-    layout :kind, :int,
-           :data, [:pointer, 2]
+    module Rbind
+        class Type < FFI::Struct
+            def declaration
+                Rbind::get_type_declaration self
+            end
 
-    def kind
-        Rbind::get_type_kind(self).to_s
+            def const_qualified?
+                1 == Rbind::is_const_qualified_type(self)
+            end
+
+            def canonical_type
+                Rbind::get_canonical_type self
+            end
+
+            def result_type
+                Rbind::get_result_type self
+            end
+
+            def pod?
+                1 == Rbind::is_pod_type(self)
+            end
+
+            def array_size
+                Rbind::get_array_size self
+            end
+
+            def array_element_type
+                Rbind::get_array_element_type self
+            end
+
+            def kind
+                self[:kind]
+            end
+        end
     end
-  end
-  
 end

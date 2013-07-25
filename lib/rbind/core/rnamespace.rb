@@ -1,6 +1,14 @@
+require 'hooks'
 
 module Rbind
     class RNamespace< RDataType
+        include Hooks
+        define_hook :on_type_not_found
+        define_hook :on_type_look_up
+        define_hook :on_add_type
+        define_hook :on_add_operation
+        define_hook :on_add_const
+
         class << self
             attr_accessor :default_type_names
         end
@@ -190,8 +198,9 @@ module Rbind
             op
         end
 
-        def add_namespace(namespace)
-            names = namespace.split("::")
+        # TODO rename to add_namespace_name
+        def add_namespace(namespace_name)
+            names = namespace_name.split("::")
             current_type = self
             while !names.empty?
                 name = names.shift
@@ -226,6 +235,20 @@ module Rbind
             add_type ::Rbind::RDataType.new("uchar").cname("unsigned char")
             add_type ::Rbind::RDataType.new("c_string").cname("char *")
             add_type ::Rbind::RDataType.new("const_c_string").cname("const char *")
+
+        end
+
+        def add_std_types
+            std = add_namespace("std")
+            RNamespace.on_type_not_found do |namespace,name|
+                if name =~ /^std::vector<(.*)>$/
+                    t = namespace.type($1)
+                    t2 = RVector.new(name,namespace,t)
+                    std.add_type(t2)
+                    puts t2.full_name
+                    t2
+                end
+            end
         end
 
         def add_simple_type(name)
@@ -292,7 +315,15 @@ module Rbind
             t ||= if search_owner && owner
                       owner.type(name,false)
                   end
-            raise RuntimeError,"#{full_name} has no type called #{name}" if raise_ && !t
+            if !t && raise_
+                if self.class.callbacks_for_hook(:on_type_not_found)
+                    results = self.run_hook(:on_type_not_found,self,name)
+                    t = results.find do |t|
+                        t.respond_to?(:type)
+                    end
+                end
+                raise RuntimeError,"#{full_name} has no type called #{name}" if !t
+            end
             if t && (ptr || ref)
                 t = t.clone
                 t.ref = ref
@@ -307,6 +338,10 @@ module Rbind
 
         def root?
             !!root
+        end
+
+        def empty?
+            consts.empty? && types.empty? && operations.empty?
         end
 
         def pretty_print(pp)
@@ -354,7 +389,7 @@ module Rbind
         end
 
         def method_missing(m,*args)
-            t = type(m.to_s,false,false)
+            t = type(m.to_s,false,false) if m != :to_ary
             return t if t
 
             op = operation(m.to_s,false)

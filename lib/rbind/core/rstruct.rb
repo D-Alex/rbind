@@ -61,6 +61,10 @@ module Rbind
             self
         end
 
+        def empty?
+            super && attributes.empty?
+        end
+
         def pretty_print_name
             "struct #{full_name}#{" Flags: #{flags.join(", ")}" unless flags.empty?}"
         end

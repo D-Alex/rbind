@@ -163,6 +163,10 @@ module Rbind
             map_to_namespace(name)
         end
 
+        def to_s
+            full_name
+        end
+
         def map_to_namespace(name)
             if namespace
                 "#{namespace}::#{name}"
