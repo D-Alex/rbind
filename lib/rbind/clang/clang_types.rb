@@ -136,6 +136,10 @@ module Clang
             location[2]
         end
 
+        def cxx_access_specifier
+            Rbind::get_cxx_access_specifier self
+        end
+
         def extent
             Rbind::get_cursor_extent self
         end
@@ -265,4 +269,21 @@ module Clang
             Rbind::get_token_spelling(translation_unit,self).to_s
         end
     end
+
+  # The type of an element in the abstract syntax tree.
+  # 
+  # = Fields:
+  # :kind ::
+  #   (Symbol from _enum_type_kind_) 
+  # :data ::
+  #   (Array<FFI::Pointer(*Void)>) 
+  class Type < FFI::Struct
+    layout :kind, :int,
+           :data, [:pointer, 2]
+
+    def kind
+        Rbind::get_type_kind(self).to_s
+    end
+  end
+  
 end

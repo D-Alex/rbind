@@ -2277,18 +2277,6 @@ module Rbind
     :constant_array, 112
   ]
   
-  # The type of an element in the abstract syntax tree.
-  # 
-  # = Fields:
-  # :kind ::
-  #   (Symbol from _enum_type_kind_) 
-  # :data ::
-  #   (Array<FFI::Pointer(*Void)>) 
-  class Type < FFI::Struct
-    layout :kind, :type_kind,
-           :data, [:pointer, 2]
-  end
-  
   # Retrieve the type of a CXCursor (if any).
   # 
   # @method get_cursor_type(c)
