@@ -18,6 +18,16 @@ class <%= name %>
     extend FFI::DataConverter
     native_type FFI::Type::POINTER
 
+    # @api private
+    #
+    # Returns the *Struct type that Rbind uses to store additional information
+    # about the memory used by this object
+    #
+    # @return [FFI::Struct]
+    def self.rbind_struct
+        <%= name %>Struct
+    end
+
     def self.new(*args)
         if args.first.is_a?(FFI::Pointer) || args.first.is_a?(<%= name %>Struct)
             raise ArgumentError, "too many arguments for creating #{self.name} from Pointer" unless args.size == 1
@@ -42,13 +52,24 @@ class <%= name %>
     end
 
     # @api private
-    # can be overwritten by the user
+    #
+    # Performs the convertion a Ruby representation into the FFI representation
+    #
+    # @param [Object] obj the Ruby representation
+    # @param context necessary but undocumented argument from FFI
+    # @return [FFI::Pointer,FFI::AutoPointer]
     def self.to_native(obj,context)
         rbind_to_native(obj,context)
     end
 
     # @api private
-    # can be overwritten by the user
+    # 
+    # Performs the convertion from FFI into the Ruby representation that
+    # corresponds to this type
+    #
+    # @param [FFI::Pointer,FFI::AutoPointer] ptr
+    # @param [] context
+    # @return [Object]
     def self.from_native(ptr,context)
         rbind_from_native(ptr,context)
     end
@@ -70,6 +91,11 @@ class <%= name %>
     # the real object
     def __owner__?
         @__obj_ptr__[:bowner]
+    end
+
+    # converts <%= name %> into a string by crawling through all its attributes
+    def to_s
+        <%= add_to_s %>
     end
 
     # @!group Sepcializing

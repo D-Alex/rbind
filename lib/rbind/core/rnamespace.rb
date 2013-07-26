@@ -278,7 +278,7 @@ module Rbind
                     if !!(ns = RBase.namespace(name))
                         ns = ns.split("::")
                         ns << RBase.basename(name)
-                        t = type(ns.shift,false)
+                        t = type(ns.shift,false,false)
                         t.type(ns.join("::"),false,false) if t
                     end
                 end
@@ -354,7 +354,7 @@ module Rbind
         end
 
         def method_missing(m,*args)
-            t = type(m.to_s,false)
+            t = type(m.to_s,false,false)
             return t if t
 
             op = operation(m.to_s,false)

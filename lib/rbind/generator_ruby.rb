@@ -425,6 +425,16 @@ module Rbind
                 str
             end
 
+            def add_to_s
+                str = []
+                @root.each_operation do |o|
+                    next unless o.is_a? RGetter
+                    op = OperationHelper.new(o)
+                    str << "#{op.name}=\#{self.#{op.name}}"
+                end
+                "\"#<#{full_name} #{str.join(" ")}>\""
+            end
+
             def add_methods(root=@root)
                 # sort all method according their target name
                 ops = Hash.new do |h,k|
