@@ -9,7 +9,8 @@ module Rbind
         end
 
         def default_value=(val)
-            @default_value = if val && !val.empty?
+            val = val.to_s
+            @default_value = if !val.empty?
                                  val.chomp.chomp(" ")
                              else
                                  nil
@@ -30,11 +31,13 @@ module Rbind
         end
 
         def generate_signatures
-            c,cs = super
             if default_value
-                c = "#{c}=#{default_value}"
+                super.map do |s|
+                    "#{s} = #{default_value}"
+                end
+            else
+                super
             end
-            [c,cs]
         end
     end
 end

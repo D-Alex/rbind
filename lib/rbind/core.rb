@@ -11,5 +11,10 @@ require 'rbind/core/rsetter.rb'
 require 'rbind/core/rnamespace.rb'
 require 'rbind/core/rstruct.rb'
 require 'rbind/core/rclass.rb'
+require 'rbind/core/rreference.rb'
+require 'rbind/core/rpointer.rb'
+require 'rbind/core/rtype_qualifier.rb'
+
+# TODO move somewhere else
 require 'rbind/core/rvector.rb'
 require 'rbind/core/rstring.rb'

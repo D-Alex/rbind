@@ -9,7 +9,7 @@ module Rbind
         end
 
         def generate_signatures
-            ["#{full_name} = #{value}","const int #{cname} = #{map_value_to_namespace(value)}"]
+            ["#{full_name} = #{value}","const #{cname} = #{map_value_to_namespace(value)}"]
         end
 
         def map_value_to_namespace(value)

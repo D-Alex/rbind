@@ -10,7 +10,6 @@ module Rbind
 
         def initialize(name,return_type,*args)
             super(name)
-            raise ArgumentError ,"wrong type #{return_type}" if return_type && !return_type.is_a?(RDataType)
             @return_type = return_type
             @parameters = args.flatten
             @parameters.each do |para|

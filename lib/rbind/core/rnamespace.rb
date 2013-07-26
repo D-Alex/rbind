@@ -244,8 +244,8 @@ module Rbind
                 if name =~ /^std::vector<(.*)>$/
                     t = namespace.type($1)
                     t2 = RVector.new(name,namespace,t)
+                    ::Rbind.log.info "auto add template type #{t2}"
                     std.add_type(t2)
-                    puts t2.full_name
                     t2
                 end
             end
@@ -286,13 +286,7 @@ module Rbind
         end
 
         def type(name,raise_ = true,search_owner = true)
-            ptr = name.include?("*")
-            ref = name.include?("&")
-            if(ptr && ref)
-                raise ArgumentError,"given type is a reference and pointer at the same time: #{name}"
-            end
-            name = name.gsub("*","").gsub("&","")
-            name = name.chomp(" ")
+            name = name.gsub(" ","")
             t = if @types.has_key?(name)
                     @types[name]
                 elsif @types_alias.has_key?(name)
@@ -315,6 +309,30 @@ module Rbind
             t ||= if search_owner && owner
                       owner.type(name,false)
                   end
+            # check if type is a pointer and pointee is registered
+            t ||= begin
+                      ptr_level = $1.to_s.size if name  =~ /(\**)$/
+                      name2 = name.gsub("*","")
+                      ref_level = $1.to_s.size if name2  =~ /(&*)$/
+                      name2 = name2.gsub("&","")
+                      if ptr_level > 0 || ref_level > 0
+                          t = type(name2,raise_,search_owner)
+                          if t
+                              1.upto(ptr_level) do
+                                  t = t.to_ptr
+                              end
+                              1.upto(ref_level) do
+                                  t = t.to_ref
+                              end
+                              # TODO add type to parent?
+                              t
+                          end
+                      end
+                  end
+
+            # TODO check if type is a template and a template is registered 
+            # supporting the type
+
             if !t && raise_
                 if self.class.callbacks_for_hook(:on_type_not_found)
                     results = self.run_hook(:on_type_not_found,self,name)
@@ -323,11 +341,6 @@ module Rbind
                     end
                 end
                 raise RuntimeError,"#{full_name} has no type called #{name}" if !t
-            end
-            if t && (ptr || ref)
-                t = t.clone
-                t.ref = ref
-                t.ptr = ptr
             end
             t
         end

@@ -14,14 +14,9 @@ module Rbind
         end
 
         def generate_signatures
-            s = "#{type.signature}#{" " if !type.ptr? && !type.ref?}#{name}"
-            cs= "#{type.csignature}#{" " if !type.ptr? && !type.ref?}#{name}"
-
-            if read_only? && !type.basic_type?
-                s = "const #{s}"
-                cs = "const #{cs}"
+            @type.generate_signatures.map do |s|
+                "#{s} #{name}"
             end
-            [s,cs]
         end
 
         def valid_flags

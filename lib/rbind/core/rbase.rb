@@ -41,22 +41,25 @@ module Rbind
                 name.gsub(".","::").gsub(" ","")
             end
 
-            def basename(name)
+            def split_name(name)
                 name = normalize(name)
-                if !!(name =~/.*::(.*)$/)
-                    $1
+                # check for template
+                if(name =~/([\w:]*)(<.*)$/)
+                    result = split_name($1)
+                    [result[0],result[1]+$2]
+                elsif(name =~/(.*)::(.*)$/)
+                    [$1,$2]
                 else
-                    name
+                    [nil,name]
                 end
             end
 
             def namespace(name)
-                name = normalize(name)
-                if !!(name =~/(.*)::.*$/)
-                    $1
-                else
-                    nil
-                end
+                split_name(name)[0]
+            end
+
+            def basename(name)
+                split_name(name)[1]
             end
         end
         self.cprefix = "rbind_"
@@ -164,7 +167,7 @@ module Rbind
         end
 
         def to_s
-            full_name
+            signature
         end
 
         def map_to_namespace(name)

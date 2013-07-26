@@ -23,19 +23,15 @@ module Rbind
         end
 
         def ==(other)
-            other.name == name && other.ptr == ptr
+            other.generate_signatures[0] == generate_signatures[0]
         end
 
         def generate_signatures
-            if ref?
-                ["#{full_name} &","#{cname} &"]
-            elsif ptr?
-                ["#{full_name} *","#{cname} *"]
-            else
-                super
-            end
+            super
         end
 
+        # indicates of the type shall be checked before 
+        # casting
         def check_type?
             @check_type
         end
@@ -73,32 +69,44 @@ module Rbind
             false
         end
 
-        def to_value
-            owner.type(name)
+        def to_raw
+            self
         end
 
         def to_ptr
-            return self if ptr? && !ref?
-            t = self.dup
-            t.ref = false
-            t.ptr = true
-            t
+            RPointer.new(self)
+        end
+
+        def to_ref
+            RReference.new(self)
+        end
+
+        def to_const
+            RTypeQualifier.new(self,:const => true)
+        end
+
+        def raw?
+            true
+        end
+
+        def const?
+            false
+        end
+
+        def ptr?
+            false
+        end
+
+        def ref?
+            false
         end
 
         def delete!
             if @owner
                 @owner.delete_type self.name
-            else 
+            else
                 raise "#{self} has no owner."
             end
-        end
-
-        def ptr?
-            !!ptr
-        end
-
-        def ref?
-            !!ref
         end
     end
 end
