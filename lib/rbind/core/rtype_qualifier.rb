@@ -6,7 +6,7 @@ module Rbind
 
         def initialize(type,options=Hash.new)
             super(type)
-            const = options[:const]
+            @const = options[:const]
         end
 
         def const?
@@ -21,9 +21,25 @@ module Rbind
             false
         end
 
+        def signature(sig=nil)
+            if const?
+                "const "+ super.to_s
+            else
+                super
+            end
+        end
+
+        def csignature(sig=nil)
+            if const?
+                "const "+ super.to_s
+            else
+                super
+            end
+        end
+
         def generate_signatures
             str = if const?
-                      "const"
+                      "const "
                   end
             super.map do |s|
                 str + s

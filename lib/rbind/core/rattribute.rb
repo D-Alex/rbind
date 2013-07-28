@@ -5,7 +5,6 @@ module Rbind
         def initialize(name,type,*flags)
             super(name,*flags)
             raise ArgumentError,"no type" unless type
-            raise "wrong name #{name}" if name =~/.*\*.*/
             @type = type
         end
 
@@ -21,12 +20,6 @@ module Rbind
 
         def valid_flags
             super << :RW
-        end
-
-        def to_ptr
-            a = self.dup
-            a.type = type.to_ptr
-            a
         end
 
         def read_only?

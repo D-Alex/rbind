@@ -1,12 +1,12 @@
 module Rbind
-    class RString < RClass
+    class StdString < RClass
         def initialize(name,root)
             super(name)
 
             size_t = root.type("size_t")
             char = root.type("char")
             string = root.type("c_string")
-            const_string = root.type("const_c_string")
+            const_string = string.to_const
             bool = root.type("bool")
             void = root.type("void")
             int = root.type("int")

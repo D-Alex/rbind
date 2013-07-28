@@ -8,6 +8,9 @@ module Rbind
             o.log = ::Logger.new(STDOUT)
             o.log.level = ::Logger::INFO
             o.log.progname = o.name
+            o.log.formatter = proc do |severity, datetime, progname, msg|
+                "#{progname}: #{msg}\n"
+            end
         end
     end
     extend ::Rbind::Logger

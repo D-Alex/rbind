@@ -11,20 +11,32 @@ module Rbind
 
         class << self
             attr_accessor :default_type_names
+            attr_accessor :default_type_alias
         end
-        self.default_type_names = [:int,:int8,:int32,:int64,:uint,:uint8,:uint32,:uint64,:int8_t,:int32_t,:int64_t,:uint8_t,:uint32_t,:uint64_t,:bool,:double,:float,:void,:char,:size_t]
+        # TODO move somewhere else
+        self.default_type_names = [:int,:int8,:int32,:int64,:uint,:uint8,:uint32,:uint64,
+                                   :int8_t,:int32_t,:int64_t,:uint8_t,:uint32_t,:uint64_t,
+                                   :bool,:double,:float,:void,:char,:size_t,:long,
+                                   :uchar, :char16, :char32, :ushort, :ulong, :ulong_long,
+                                   :uint128, :short, :long_long, :int128, :long_double,
+                                   :c_string]
+        self.default_type_alias= { :u_char => :uchar, :u_short => :ushort, :u_long => :ulong,
+                                   :u_long_long => :ulong_long,:u_int => :uint, :uint128 => :uint128,
+                                   :char_s => :char}
 
         attr_reader :operations
         attr_reader :operation_alias
         attr_reader :consts
+        attr_reader :enums
         attr_reader :used_namespaces
         attr_accessor :root
-        attr_accessor :types_alias
+        attr_accessor :type_alias
 
         def initialize(name,*flags)
             @consts = Hash.new
+            @enums = Hash.new
             @types = Hash.new
-            @types_alias = Hash.new
+            @type_alias = Hash.new
             @operations = Hash.new{|hash,key| hash[key] = Array.new}
             @operation_alias = Hash.new{|hash,key| hash[key] = Array.new}
             @used_namespaces = Hash.new
@@ -99,6 +111,7 @@ module Rbind
                       owner.const(name,false)
                   end
             raise RuntimeError,"#{full_name} has no const called #{name}" if raise_ && !c
+            c
         end
 
         def each_const(childs=true,all=false,&block)
@@ -230,25 +243,72 @@ module Rbind
             const
         end
 
-        def add_default_types
-            add_simple_types RNamespace.default_type_names
-            add_type ::Rbind::RDataType.new("uchar").cname("unsigned char")
-            add_type ::Rbind::RDataType.new("c_string").cname("char *")
-            add_type ::Rbind::RDataType.new("const_c_string").cname("const char *")
-
+        def add_enum(enum)
+            if enum(enum.full_name,false,false)
+                raise ArgumentError,"#A enum with the name #{enum.full_name} already exists"
+            end
+            if enum.namespace? && self.full_name != enum.namespace
+                t=type(enum.namespace,false)
+                t ||= add_namespace(enum.namespace)
+                t.add_enum(enum)
+            else
+                enum.owner = self
+                @enums[enum.name] = enum
+            end
+            enum
         end
 
-        def add_std_types
-            std = add_namespace("std")
-            RNamespace.on_type_not_found do |namespace,name|
-                if name =~ /^std::vector<(.*)>$/
-                    t = namespace.type($1)
-                    t2 = RVector.new(name,namespace,t)
-                    ::Rbind.log.info "auto add template type #{t2}"
-                    std.add_type(t2)
-                    t2
+        def enums
+            @enums.values
+        end
+
+        def enum(name,raise_ = true,search_owner = true)
+            e = if @enums.has_key?(name)
+                    @enums[name]
+                else
+                    if !!(ns = RBase.namespace(name))
+                        t = type(ns,false)
+                        t.enum(RBase.basename(name),false,false) if t
+                    end
                 end
+            e ||= begin
+                      used_namespaces.values.each do |ns|
+                          e = ns.enum(name,false,false)
+                          break if e
+                      end
+                      e
+                  end
+            e ||= if search_owner && owner
+                      owner.enum(name,false)
+                  end
+            raise RuntimeError,"#{full_name} has no enum called #{name}" if raise_ && !e
+            e
+        end
+
+        def each_enum(childs=true,all=false,&block)
+            if block_given?
+                enums.each do |c|
+                    next if !all && (c.ignore? || c.extern?)
+                    yield c
+                end
+                return unless childs
+                each_container(all) do |t|
+                    t.each_enum(childs,all,&block)
+                end
+            else
+                Enumerator.new(self,:each_enum,childs,all)
             end
+        end
+
+        def add_default_types
+            add_simple_types RNamespace.default_type_names
+            type("uchar").cname("unsigned char")
+            type("c_string").cname("char *")
+            RNamespace.default_type_alias.each_pair do |key,val|
+                next if @type_alias.has_key?(key)
+                @type_alias[key.to_s] = type(val)
+            end
+            self
         end
 
         def add_simple_type(name)
@@ -262,9 +322,8 @@ module Rbind
             end
         end
 
-        def add_type(type)
-            raise ArgumentError, "wrong parmeter type #{type}" unless type.is_a? RDataType
-            if type(type.full_name,false,false)
+        def add_type(type,check_exist = true)
+            if check_exist && type(type.full_name,false,false)
                 raise ArgumentError,"A type with the name #{type.full_name} already exists"
             end
             # if self is not the right namespace
@@ -275,10 +334,10 @@ module Rbind
             else
                 type.owner = self
                 if type.alias
-                    if type(type.alias,false,false)
+                    if check_exist && type(type.alias,false,false)
                         raise ArgumentError,"A type with the name alias #{type.alias} already exists"
                     end
-                    @types_alias[type.alias] = type
+                    @type_alias[type.alias] = type
                 end
                 @types[type.name] = type
             end
@@ -286,11 +345,14 @@ module Rbind
         end
 
         def type(name,raise_ = true,search_owner = true)
-            name = name.gsub(" ","")
+            name = name.to_s
+            const = name.count("const ")
+            name = name.gsub("unsigned ","u").gsub("const ","").gsub(" ","")
+
             t = if @types.has_key?(name)
                     @types[name]
-                elsif @types_alias.has_key?(name)
-                    @types_alias[name]
+                elsif @type_alias.has_key?(name)
+                    @type_alias[name]
                 else
                     if !!(ns = RBase.namespace(name))
                         ns = ns.split("::")
@@ -324,14 +386,24 @@ module Rbind
                               1.upto(ref_level) do
                                   t = t.to_ref
                               end
-                              # TODO add type to parent?
+                              t.owner.add_type(t,false)
                               t
                           end
                       end
                   end
 
-            # TODO check if type is a template and a template is registered 
-            # supporting the type
+            # check if type is a template and a template is registered
+            # under the given name
+            t ||=  if name =~ /([:\w]*)<(.*)>$/
+                      t = type($1,false)
+                      t2 = type($2,false)
+                      if t && t2
+                          t3 = t.specialize(name,t2)
+                          ::Rbind.log.info "spezialize template #{t.full_name} --> #{t3.full_name}"
+                          t.owner.add_type(t3,false)
+                          t3
+                      end
+                    end
 
             if !t && raise_
                 if self.class.callbacks_for_hook(:on_type_not_found)
@@ -407,6 +479,12 @@ module Rbind
 
             op = operation(m.to_s,false)
             return op if op
+
+            e = enum(m.to_s,false)
+            return e if e
+
+            c = const(m.to_s,false)
+            return c if c
 
             super
         end

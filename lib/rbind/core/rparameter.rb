@@ -26,6 +26,12 @@ module Rbind
             end
         end
 
+        def to_ptr
+            t = self.dup
+            t.type = t.type.to_ptr
+            t
+        end
+
         def valid_flags
             [:IO,:O]
         end

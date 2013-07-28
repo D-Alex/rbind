@@ -12,9 +12,6 @@ module Rbind
             super(name)
             @return_type = return_type
             @parameters = args.flatten
-            @parameters.each do |para|
-                raise ArgumentError ,"wrong parameter type#{para}" if !para.is_a?(RParameter)
-            end
             @cparameters = @parameters
         end
 

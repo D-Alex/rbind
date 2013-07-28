@@ -15,7 +15,6 @@ class Laser
 
     public:
         class MStruct{};
-
         std::vector<int> public_var;
 
         // basic types
@@ -28,13 +27,13 @@ class Laser
         void setValues5(std::vector<unsigned int*> uints){};
         void setValues6(std::vector<unsigned int**> uints){};
 
-        void setValues4(const std::vector<unsigned int> uints){};
-        void setValues5(const std::vector<unsigned int*> &uints){};
+        void setValues7(const std::vector<unsigned int> uints){};
+        void setValues8(const std::vector<unsigned int*> &uints){};
 
         // complex types
-        void setValues7(std::vector<MStruct> objs){};
-        void setValues8(std::vector<MStruct*> objs){};
-        void setValues9(std::vector<MStruct**> objs){};
+        void setValues9(std::vector<MStruct> objs){};
+        void setValues10(std::vector<MStruct*> objs){};
+        void setValues11(std::vector<MStruct**> objs){};
 };
 
 #endif

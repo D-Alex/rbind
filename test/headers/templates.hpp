@@ -6,6 +6,9 @@ template<typename T> class TemplateType
 {
     public:
         T field;
+
+    void setInt(int i){};
+    void setT(T val){};
 };
 
 class Test

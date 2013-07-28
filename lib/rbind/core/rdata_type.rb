@@ -59,12 +59,16 @@ module Rbind
             !!@typedef
         end
 
+        def template?
+            false
+        end
+
         # elementar type of c
         def basic_type?
             true
         end
 
-        # holds ofther operations, types or consts
+        # holds other operations, types or consts
         def container?
             false
         end

@@ -36,6 +36,14 @@ module Rbind
             RTypeQualifier.new(self,:const => true)
         end
 
+        def signature(sig=nil)
+            super.to_s + "&"
+        end
+
+        def csignature(sig=nil)
+            super.to_s + "&"
+        end
+
         def generate_signatures
             super.map do |s|
                 s + "&"

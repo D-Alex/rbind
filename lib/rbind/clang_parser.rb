@@ -24,7 +24,7 @@ module Rbind
             super("root")
             self.root = true
             add_default_types
-            add_std_types
+            add_type(StdVector.new("std::vector"))
             @clang = Clang::Clang.new
         end
 
@@ -60,18 +60,33 @@ module Rbind
         end
 
         # if rbind_type is given only pointer/ref or qualifier are applied
-        def to_rbind_type(parent,type_cursor,rbind_type=nil)
-            clang_type = type_cursor.type.canonical_type
+        def to_rbind_type(parent,cursor,rbind_type=nil,type_getter = :type)
+            clang_type = cursor.send(type_getter)
+            return nil if clang_type.null?
+            clang_type = clang_type.canonical_type
             clang_type,level = pointee_type(clang_type)
 
             # generate rbind type
             clang_type = clang_type.canonical_type
             t = if rbind_type
                     rbind_type
-                elsif clang_type.pod? && clang_type.kind != :record && clang_type.kind
-                    parent.type(clang_type.kind.to_s)
                 else
-                    parent.type(clang_type.declaration.spelling)
+                    name = clang_type.declaration.spelling
+                    name = if name.empty?
+                               if clang_type.kind != :unexposed
+                                   if clang_type.kind == :l_value_reference
+                                       clang_type.pointee_type.kind
+                                   else
+                                       clang_type.kind.to_s
+                                   end
+                               else
+                                   # fall back to cursor spelling
+                                   cursor.spelling
+                               end
+                           else
+                               name
+                           end
+                    parent.type(name)
                 end
 
             # add pointer level
@@ -79,32 +94,45 @@ module Rbind
                 t = t.to_ptr
             end
             t = if clang_type.kind == :l_value_reference
-                    t.to_ref
+                    if clang_type.pointee_type.const_qualified?
+                        t.to_ref.to_const
+                    else
+                        t.to_ref
+                    end
                 else
-                    t
+                    if clang_type.const_qualified?
+                        t.to_const
+                    else
+                        t
+                    end
                 end
         end
 
         # entry call to parse a file
         def process(cursor,parent = self)
             cursor.visit_children(false) do |cu,_|
+             #   puts "----->#{cu.kind} #{cu.spelling} #{cu.type.kind} #{cu.specialized_template.kind}"
                 case cu.kind
                 when :namespace
                     process_namespace(cu,parent)
                 when :enum_decl
-                    puts "got enum declaration #{cu.spelling}"
+                    process_enum(cu,parent)
                 when :union_decl
-                    puts "got union declaration #{cu.spelling}"
+            #        puts "got union declaration #{cu.spelling}"
                 when :struct_decl
                     process_class(cu,parent)
                 when :class_decl
                     process_class(cu,parent)
                 when :function_decl
-                    puts "got function decl #{cu.spelling}"
+                    process_function(cu,parent)
                 when :macro_expansion # CV_WRAP ...
-                    puts "got macro #{cu.spelling} #{cu.location}"
+         #           puts "got macro #{cu.spelling} #{cu.location}"
+                when :function_template
+            #        puts "got template fuction #{cu.spelling} #{cu.location}"
                 when :class_template
                     process_class_template(cu,parent)
+                when :template_type_parameter
+                    parent.add_type(RTemplateParameter.new(cu.spelling))
                 when :x_access_specifier
                     access = normalize_accessor(cu.cxx_access_specifier)
                 when :x_base_specifier
@@ -114,12 +142,21 @@ module Rbind
                     p ||= parent.add_type(RClass.new(RBase.normalize(cu.spelling)))
                     parent.add_parent p,access
                 when :field_decl
+                  #  puts "got field #{cu.spelling}"
                 when :constructor
-                    puts "got constructor#{cu.spelling}"
+                    process_function(cu,parent)
                 when :x_method
-                    process_instance_method(cu,parent)
+                    process_function(cu,parent)
+                when :typedef_decl
+                    # rename object if parent has no name
+                    if parent.name == "unknown"
+                        puts "rename #{parent.full_name} to #{cu.spelling}: #{cu.location}"
+                    end
+                when :var_decl
+                    process_variable(cu,parent)
+                else
+                    #puts "skip: #{cu.spelling}"
                 end
-                #puts "#{cu.kind} #{cu.spelling}"
             end
         end
 
@@ -130,18 +167,64 @@ module Rbind
             process(cursor,ns)
         end
 
-        #TODO not implemented
+        def process_enum(cursor,parent)
+            name = cursor.spelling
+            ClangParser.log.info "processing enum #{parent}::#{name}"
+            enum = REnum.new(name)
+            cursor.visit_children(false) do |cu,_|
+                case cu.kind
+                when :enum_constant_decl
+                    # for now there is no api to access these values from libclang
+                    expression = cu.expression
+                    expression.pop
+                    val = if expression.join(" ") =~ /=(.*)/
+                              $1.gsub(" ","")
+                          end
+                    enum.add_value(cu.spelling,val)
+                end
+            end
+            parent.add_enum(enum)
+            enum
+        end
+
+        def process_variable(cursor,parent)
+            name = cursor.spelling
+            ClangParser.log.info "processing variable #{parent}::#{name}"
+            var =  process_parameter(cursor,parent)
+            if var.type.const?
+                parent.add_const(var)
+            end
+        end
+
         def process_class_template(cursor,parent,default_access = :private)
             class_name = cursor.spelling
             ClangParser.log.info "processing class template #{parent}::#{class_name}"
-            cursor.visit_children do |cu,_|
-                puts "#{cu.kind} #{cu.spelling}"
-            end
+
+            klass = parent.type(class_name,false)
+            klass = if(!klass)
+                        klass = RTemplateClass.new(class_name)
+                        parent.add_type(klass)
+                        klass
+                    else
+                        if klass.empty? && !klass.template?
+                            ClangParser.log.info " reopening existing class template #{klass}"
+                            klass
+                        else
+                            raise "Cannot reopening existing class #{klass} which is non-empty!"
+                        end
+                    end
+            process(cursor,klass)
         end
 
         def process_class(cursor,parent)
             class_name = cursor.spelling
+            class_name = if class_name.empty?
+                             "unknown"
+                         else
+                             class_name
+                         end
             ClangParser.log.info "processing class #{parent}::#{class_name}"
+
             klass = parent.type(class_name,false)
             klass = if(!klass)
                         klass = RClass.new(class_name)
@@ -160,17 +243,15 @@ module Rbind
             process(cursor,klass)
         end
 
-        def process_instance_method(cursor,parent)
+        def process_function(cursor,parent)
             name = cursor.spelling
             args = []
 
-            result_type = cursor.result_type.declaration.spelling
-            result_type = if result_type.empty?
-                              nil
-                          else
-                              parent.type(result_type)
-                          end
-
+            cursor = if(cursor.specialized_template.kind == :function_template)
+                         cursor.specialized_template
+                     else
+                         cursor
+                     end
             cursor.visit_children() do |cu,_|
                 case cu.kind
                 when :parm_decl
@@ -181,25 +262,43 @@ module Rbind
 
             # some default values are not parsed by clang
             # try to parse them from Tokens
+            # and rename parameters with unknown name
+            # to prevent name clashes
             expression = cursor.expression.join()
-            args.each do |arg|
+            args.each_with_index do |arg,idx|
                 if(!arg.default_value && (expression =~ /#{arg.name}=(\w*)/))
                     arg.default_value = $1
                 end
+                arg.name = if(arg.name == "unknown")
+                               arg.name + idx.to_s
+                           else
+                               arg.name
+                           end
             end
+
+            result_type = if !cursor.result_type.null?
+                              process_parameter(cursor,parent,:result_type).type
+                          end
             op = ::Rbind::ROperation.new(name,result_type,*args)
-            ClangParser.log.info "add opeartion #{parent.full_name}::#{op.signature}"
+            ClangParser.log.info "add function #{op.signature}"
             parent.add_operation(op)
+        rescue RuntimeError => e
+            ClangParser.log.info "skipping instance method #{parent.full_name}::#{name}: #{e}"
         end
         
-        def process_parameter(cursor,parent)
+        # type_getter is also used for :result_type
+        def process_parameter(cursor,parent,type_getter = :type)
             para_name = cursor.spelling
+            para_name = if para_name.empty?
+                            "unknown"
+                        else
+                            para_name
+                        end
             default_value = nil
             type_cursor = nil
             template_name = ""
             name_space = []
             cursor.visit_children(true) do |cu,_|
-                #puts "#{cu.kind} #{cu.spelling} #{cu.expression}"
                 case cu.kind
                 when :integer_literal
                     exp = cu.expression
@@ -234,52 +333,38 @@ module Rbind
                     type_cursor = cu
                 end
             end
-
             type = if template_name.empty?
                        type = if type_cursor
                                   to_rbind_type(parent,type_cursor)
                               end
                        # just upgrade type to pointer / ref if type != nil
-                       to_rbind_type(parent,cursor,type)
+                       to_rbind_type(parent,cursor,type,type_getter)
                    else
                        # parameter is a template type
                        # TODO find better way to get inner type
                        expression = cursor.expression.join(" ")
-                       inner_type = if expression =~ /<([ \w\*&]*)>/
+                       inner_types = if expression =~ /<([ \w\*&,]*)>/
                                         $1
                                     else
                                         raise RuntimeError,"Cannot parse template type"
                                     end
-                       pointer_level = inner_type.count("*")
-                       ref_level = inner_type.count("&")
-                       const = inner_type.count("const")
-                       inner_type = inner_type.gsub("*","").gsub("&","").gsub("const ","").gsub("unsigned ","u").gsub(" ","")
-                       type = if type_cursor
-                                  to_rbind_type(parent,type_cursor)
-                              else
-                                  parent.type(inner_type)
-                              end
-                       1.upto(pointer_level) do
-                           type = type.to_ptr
-                       end
-                       1.upto(ref_level) do
-                           type = type.to_ref
+                       inner_types = inner_types.split(",").map do |inner_type|
+                           if type_cursor
+                               to_rbind_type(parent,type_cursor)
+                           else
+                               parent.type(inner_type)
+                           end
                        end
 
                        templates = template_name.split("<")
-                       templates << type.full_name
+                       templates << inner_types.map(&:full_name).join(",")
 
-                       t = parent.type(templates.join("<")+">"*(templates.size-1),false)
-                       t ||= begin
-                                 #TODO parse specialization of the template ?
-                                 parent.type(templates.join("<")+">"*(templates.size-1))
-                             end
-                       to_rbind_type(parent,cursor,t)
+                       t = parent.type(templates.join("<")+">"*(templates.size-1),true)
+                       to_rbind_type(parent,cursor,t,type_getter)
                    end
             RParameter.new(para_name,type,default_value,:IO)
         rescue RuntimeError => e
             raise ClangParserError.new(e.to_s,cursor)
         end
-
     end
 end

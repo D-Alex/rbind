@@ -12,6 +12,7 @@ module Clang
         end
 
         def translation_unit(file,args)
+            raise ArgumentError,"File #{file} does not exist!" unless File.exist?(file)
             @pargs = args.map do |a|
                 FFI::MemoryPointer.from_string(a)
             end
@@ -175,6 +176,10 @@ module Clang
                 Rbind::get_specialized_cursor_template self
             end
 
+            def template_kind
+                Rbind::get_template_cursor_kind self
+            end
+
             #attach_function :get_cxx_access_specifier, :clang_getCXXAccessSpecifier, [Cursor.by_value], :cxx_access_specifier
             #attach_function :is_cursor_definition, :clang_isCursorDefinition, [Cursor.by_value], :uint
             #attach_function :get_canonical_cursor, :clang_getCanonicalCursor, [Cursor.by_value], Cursor.by_value
@@ -185,6 +190,7 @@ module Clang
             def visit_children(recurse=false,&block)
                 orig_file = translation_unit.spelling
                 p = proc do |cur,parent,data|
+                  #  puts "#{cur.kind} #{cur.spelling} #{cur.template_kind} #{cur.specialized_template.kind} #{cur.location}"
                     if cur.file_name != orig_file
                         :continue
                     else
@@ -232,6 +238,10 @@ module Clang
         end
 
         class Type < FFI::Struct
+            def null?
+                kind == :invalid
+            end
+
             def declaration
                 Rbind::get_type_declaration self
             end
