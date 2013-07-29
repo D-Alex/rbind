@@ -13,7 +13,7 @@ namespace ns_enum
 {
     enum Test2
     {
-        VAL1 = 1
+        VAL1 = 1,
         VAL2 = VAL1+3,
         VAL3
     };

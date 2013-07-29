@@ -5,10 +5,7 @@
 #include <vector>
 #include <stdlib.h>
 
-#define BLA 21
-const int bla = 202;
-
-class Laser
+class TestClass
 {
     private:
         std::vector<float> private_var;
@@ -20,20 +17,15 @@ class Laser
         // basic types
         void setValues(std::vector<int> ints){};
         void setValues1(std::vector<int> &ints){};
-        void setValues2(std::vector<int> *ints){};
-        void setValues3(std::vector<int> **ints){};
 
-        void setValues4(std::vector<unsigned int> uints){};
-        void setValues5(std::vector<unsigned int*> uints){};
-        void setValues6(std::vector<unsigned int**> uints){};
+        void setValues2(const std::vector<unsigned int> uints){};
+        void setValues3(const std::vector<unsigned int*> &uints){};
 
-        void setValues7(const std::vector<unsigned int> uints){};
-        void setValues8(const std::vector<unsigned int*> &uints){};
+        void setValues4(std::vector<MStruct> objs){};
+        void setValues5(std::vector<MStruct*> objs){};
+        void setValues6(std::vector<MStruct**> objs){};
 
-        // complex types
-        void setValues9(std::vector<MStruct> objs){};
-        void setValues10(std::vector<MStruct*> objs){};
-        void setValues11(std::vector<MStruct**> objs){};
+        std::vector<float> &getFloats(){ return private_var;};
 };
 
 #endif

@@ -56,6 +56,7 @@ describe Rbind::ClangParser do
         end
 
         it "must parse structs" do
+            next
             file = File.join(File.dirname(__FILE__),'headers','structs.hpp')
             parser = Rbind::ClangParser.new
             parser.parse file
@@ -74,24 +75,58 @@ describe Rbind::ClangParser do
             assert_equal "TestStruct* TestStruct::getS2()", parser.TestStruct.getS2.signature
             assert_equal "TestStruct& TestStruct::getS3()", parser.TestStruct.getS3.signature
             assert_equal "const TestStruct& TestStruct::getS4()", parser.TestStruct.getS4.signature
-
-            #TODO fields
-            #TODO csignature
+            assert parser.TestStruct.attribute("bfield")
+            assert parser.TestStruct.attribute("ifield")
+            #TODO test csignature
         end
 
         it "must parse classes" do
-        end
+            next
+            file = File.join(File.dirname(__FILE__),'headers','classes.hpp')
+            parser = Rbind::ClangParser.new
+            parser.parse file
 
-        it "must parse instance methods" do
+            assert_equal "void TestClass::TestClass(int i1, char c)", parser.TestClass.TestClass.signature
+            assert_equal "void TestClass::setB(bool val)", parser.TestClass.setB.signature
+            assert_equal "void TestClass::setF(float& val)", parser.TestClass.setF.signature
+            assert_equal "void TestClass::setF2(const float& val)", parser.TestClass.setF2.signature
+            assert_equal "void TestClass::setD(double& val)", parser.TestClass.setD.signature
+            assert_equal "TestClass TestClass::setS(TestClass other)", parser.TestClass.setS.signature
+            assert_equal "TestClass TestClass::setS2(TestClass* other)", parser.TestClass.setS2.signature
+            assert_equal "TestClass TestClass::setS3(TestClass** other)", parser.TestClass.setS3.signature
+            assert_equal "TestClass TestClass::setS4(TestClass& other)", parser.TestClass.setS4.signature
+            assert_equal "TestClass TestClass::setS5(const TestClass& other)", parser.TestClass.setS5.signature
+            assert_equal "TestClass TestClass::setS6(const TestClass* other)", parser.TestClass.setS6.signature
+            assert_equal "TestClass TestClass::getS()", parser.TestClass.getS.signature
+            assert_equal "TestClass* TestClass::getS2()", parser.TestClass.getS2.signature
+            assert_equal "TestClass& TestClass::getS3()", parser.TestClass.getS3.signature
+            assert_equal "const TestClass& TestClass::getS4()", parser.TestClass.getS4.signature
+            assert parser.TestClass.attribute("bfield")
+            assert parser.TestClass.attribute("ifield")
         end
 
         it "must parse std vector types" do
-            next
             file = File.join(File.dirname(__FILE__),'headers','std_vector.hpp')
             parser = Rbind::ClangParser.new
             parser.parse file
-            #assert_equal("_test123",result)
+
+            assert_equal "void TestClass::setValues(std::vector<int> ints)", parser.TestClass.setValues.signature
+            assert_equal "void TestClass::setValues1(std::vector<int>& ints)", parser.TestClass.setValues1.signature
+            assert_equal "void TestClass::setValues2(const std::vector<uint> uints)", parser.TestClass.setValues2.signature
+            assert_equal "void TestClass::setValues3(const std::vector<uint*>& uints)", parser.TestClass.setValues3.signature
+            assert_equal "void TestClass::setValues4(std::vector<TestClass::MStruct> objs)", parser.TestClass.setValues4.signature
+            assert_equal "void TestClass::setValues5(std::vector<TestClass::MStruct*> objs)", parser.TestClass.setValues5.signature
+            assert_equal "void TestClass::setValues6(std::vector<TestClass::MStruct**> objs)", parser.TestClass.setValues6.signature
+            assert_equal "std::vector<float>& TestClass::getFloats()", parser.TestClass.getFloats.signature
         end
+
+
+  #      it "must parse std string types" do
+  #          file = File.join(File.dirname(__FILE__),'headers','std_vector.hpp')
+  #          parser = Rbind::ClangParser.new
+  #          parser.parse file
+  #          #assert_equal("_test123",result)
+  #      end
 
         # this is not fully supported yet
         #it "must parse templates" do

@@ -142,7 +142,7 @@ module Rbind
                     p ||= parent.add_type(RClass.new(RBase.normalize(cu.spelling)))
                     parent.add_parent p,access
                 when :field_decl
-                  #  puts "got field #{cu.spelling}"
+                    process_field(cu,parent)
                 when :constructor
                     process_function(cu,parent)
                 when :x_method
@@ -183,7 +183,7 @@ module Rbind
                     enum.add_value(cu.spelling,val)
                 end
             end
-            parent.add_enum(enum)
+            parent.add_type(enum)
             enum
         end
 
@@ -194,6 +194,16 @@ module Rbind
             if var.type.const?
                 parent.add_const(var)
             end
+        end
+
+        def process_field(cursor,parent)
+            name = cursor.spelling
+            ClangParser.log.info "processing field #{parent}::#{name}"
+            var =  process_parameter(cursor,parent)
+            # TODO write flag
+            attr = RAttribute.new(var.name,var.type)
+            parent.add_attribute attr
+            attr
         end
 
         def process_class_template(cursor,parent,default_access = :private)
@@ -298,7 +308,8 @@ module Rbind
             type_cursor = nil
             template_name = ""
             name_space = []
-            cursor.visit_children(true) do |cu,_|
+
+            cursor.visit_children do |cu,_|
                 case cu.kind
                 when :integer_literal
                     exp = cu.expression
@@ -342,18 +353,18 @@ module Rbind
                    else
                        # parameter is a template type
                        # TODO find better way to get inner type
+                       # we could use type_cursor here if given but this is 
+                       # not the case for basic types and somehow the type 
+                       # qualifier are not provided
                        expression = cursor.expression.join(" ")
                        inner_types = if expression =~ /<([ \w\*&,]*)>/
                                         $1
                                     else
                                         raise RuntimeError,"Cannot parse template type"
                                     end
+
                        inner_types = inner_types.split(",").map do |inner_type|
-                           if type_cursor
-                               to_rbind_type(parent,type_cursor)
-                           else
-                               parent.type(inner_type)
-                           end
+                           parent.type(inner_type)
                        end
 
                        templates = template_name.split("<")

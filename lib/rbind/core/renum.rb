@@ -13,7 +13,7 @@ module Rbind
         end
 
         def basic_type?
-            false
+            true
         end
 
         def add_value(name,val)

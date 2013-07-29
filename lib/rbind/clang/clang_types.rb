@@ -160,10 +160,6 @@ module Clang
                 Rbind::cursor_get_translation_unit(self)
             end
 
-            def result_type
-                Rbind::get_cursor_result_type self
-            end
-
             def type
                 Rbind::get_cursor_type self
             end

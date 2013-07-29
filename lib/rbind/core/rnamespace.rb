@@ -243,63 +243,6 @@ module Rbind
             const
         end
 
-        def add_enum(enum)
-            if enum(enum.full_name,false,false)
-                raise ArgumentError,"#A enum with the name #{enum.full_name} already exists"
-            end
-            if enum.namespace? && self.full_name != enum.namespace
-                t=type(enum.namespace,false)
-                t ||= add_namespace(enum.namespace)
-                t.add_enum(enum)
-            else
-                enum.owner = self
-                @enums[enum.name] = enum
-            end
-            enum
-        end
-
-        def enums
-            @enums.values
-        end
-
-        def enum(name,raise_ = true,search_owner = true)
-            e = if @enums.has_key?(name)
-                    @enums[name]
-                else
-                    if !!(ns = RBase.namespace(name))
-                        t = type(ns,false)
-                        t.enum(RBase.basename(name),false,false) if t
-                    end
-                end
-            e ||= begin
-                      used_namespaces.values.each do |ns|
-                          e = ns.enum(name,false,false)
-                          break if e
-                      end
-                      e
-                  end
-            e ||= if search_owner && owner
-                      owner.enum(name,false)
-                  end
-            raise RuntimeError,"#{full_name} has no enum called #{name}" if raise_ && !e
-            e
-        end
-
-        def each_enum(childs=true,all=false,&block)
-            if block_given?
-                enums.each do |c|
-                    next if !all && (c.ignore? || c.extern?)
-                    yield c
-                end
-                return unless childs
-                each_container(all) do |t|
-                    t.each_enum(childs,all,&block)
-                end
-            else
-                Enumerator.new(self,:each_enum,childs,all)
-            end
-        end
-
         def add_default_types
             add_simple_types RNamespace.default_type_names
             type("uchar").cname("unsigned char")
