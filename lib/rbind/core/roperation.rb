@@ -12,7 +12,23 @@ module Rbind
             super(name)
             @return_type = return_type
             @parameters = args.flatten
-            @cparameters = @parameters
+            @cparameters = @parameters.dup
+        end
+
+        def add_parameter(para,&block)
+            para = if para.is_a? String
+                raise "No owner. Cannot create parameter" unless owner
+                para = RParameter.new(para,owner.void)
+                owner.instance_exec(para,&block) if block
+                para
+            else
+                para
+            end
+            if @parameters.find{|p| p.name == para.name}
+                raise RuntimeError,"duplicate parameter name #{para}"
+            end
+            @parameters << para
+            @cparameters << para
         end
 
         def ==(other)
@@ -98,7 +114,7 @@ module Rbind
                                p = RParameter.new("rbind_obj",obj,nil,:IO)
                                [p] +  @parameters
                            else
-                               @parameters
+                               @parameters.dup
                            end
             @parameters.each do |para|
                 para.owner = self
@@ -110,6 +126,8 @@ module Rbind
             !@return_type
         end
 
+        # returns true if the method is a setter or getter
+        # generated for a class attribute
         def attribute?
             false
         end

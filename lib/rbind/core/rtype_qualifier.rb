@@ -17,31 +17,35 @@ module Rbind
             __getobj__
         end
 
+        def to_ptr
+            RPointer.new(self)
+        end
+
+        def to_ref
+            RReference.new(self)
+        end
+
+        def to_const
+            RTypeQualifier.new(self,:const => true)
+        end
+
         def raw?
             false
         end
 
         def signature(sig=nil)
-            if const?
-                "const "+ super.to_s
-            else
-                super
-            end
+            generate_signatures[0]
         end
 
         def csignature(sig=nil)
-            if const?
-                "const "+ super.to_s
-            else
-                super
-            end
+            generate_signatures[1]
         end
 
         def generate_signatures
             str = if const?
                       "const "
                   end
-            super.map do |s|
+            to_raw.generate_signatures.map do |s|
                 str + s
             end
         end

@@ -21,8 +21,7 @@ module Rbind
         extend ::Rbind::Logger
 
         def initialize(args = ["-xc++","-fno-rtti"])
-            super("root")
-            self.root = true
+            super()
             add_default_types
             add_type(StdVector.new("std::vector"))
             @clang = Clang::Clang.new

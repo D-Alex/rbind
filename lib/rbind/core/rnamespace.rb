@@ -32,7 +32,7 @@ module Rbind
         attr_accessor :root
         attr_accessor :type_alias
 
-        def initialize(name,*flags)
+        def initialize(name=nil,*flags)
             @consts = Hash.new
             @enums = Hash.new
             @types = Hash.new
@@ -40,6 +40,10 @@ module Rbind
             @operations = Hash.new{|hash,key| hash[key] = Array.new}
             @operation_alias = Hash.new{|hash,key| hash[key] = Array.new}
             @used_namespaces = Hash.new
+            name ||= begin
+                         @root = true
+                         "root"
+                     end
             super(name,*flags)
         end
 
@@ -183,9 +187,15 @@ module Rbind
             !!operation(name,false)
         end
 
-        def add_operation(op)
-            op.owner = self
+        def add_operation(op,&block)
+            if op.is_a? String
+                op = ROperation.new(op,void)
+                op.owner = self
+                instance_exec(op,&block) if block
+                return add_operation(op)
+            end
 
+            op.owner = self
             # make sure there is no name clash
             other = @operations[op.name].find do |o|
                 o.cname == op.cname
@@ -417,18 +427,19 @@ module Rbind
         end
 
         def method_missing(m,*args)
-            t = type(m.to_s,false,false) if m != :to_ary
-            return t if t
+            if m != :to_ary && args.empty?
+                t = type(m.to_s,false,false) if m != :to_ary
+                return t if t
 
-            op = operation(m.to_s,false)
-            return op if op
+                op = operation(m.to_s,false)
+                return op if op
 
-            e = enum(m.to_s,false)
-            return e if e
+                e = enum(m.to_s,false)
+                return e if e
 
-            c = const(m.to_s,false)
-            return c if c
-
+                c = const(m.to_s,false)
+                return c if c
+            end
             super
         end
     end
