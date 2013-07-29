@@ -1,6 +1,6 @@
 
-#ifndef RBIND_STD_HPP
-#define RBIND_STD_HPP
+#ifndef RBIND_STD_VECTOR_HPP
+#define RBIND_STD_VECTOR_HPP
 
 #include <vector>
 #include <stdlib.h>

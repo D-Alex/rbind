@@ -103,6 +103,7 @@ module Rbind
             name = array[1]
             type = find_type(owner,type_name)
             flags = normalize_flags(line_number,flags)
+            flags << :R if flags.empty?
             RAttribute.new(name,type,flags)
         rescue RuntimeError => e
             raise "input line #{line_number}: #{e}"

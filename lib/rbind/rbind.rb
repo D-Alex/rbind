@@ -194,6 +194,7 @@ module Rbind
         def import_std_string
             @generator_c.includes << "<string>"
             @parser.add_type(StdString.new("std::string",@parser))
+            @parser.type_alias["basic_string"] = @parser.std.string
             self
         end
 

@@ -55,7 +55,7 @@ module Rbind
                 attr.owner = self
                 @attributes[attr.name] = attr
                 # add getter and setter methods to the object
-                add_operation(RGetter.new(attr))
+                add_operation(RGetter.new(attr)) if attr.read?
                 add_operation(RSetter.new(attr)) if attr.write?
             end
             self

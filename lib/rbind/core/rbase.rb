@@ -74,7 +74,7 @@ module Rbind
             @name = RBase::basename(name)
             @namespace = RBase::namespace(name)
             @version = 1
-            self.flags = flags.flatten
+            self.flags = flags.flatten.uniq.compact
         end
 
         def generate_signatures
@@ -137,8 +137,9 @@ module Rbind
         end
 
         def validate_flags(flags,valid_flags = self.valid_flags)
-            valid_flags.flatten!
+            valid_flags = valid_flags.flatten
             flags.each do |flag|
+                next unless flag
                 if !valid_flags.include?(flag)
                     raise "flag #{flag} is not supported for #{self.class.name}. Supported flags are #{valid_flags}"
                 end

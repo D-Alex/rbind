@@ -19,11 +19,11 @@ module Rbind
         end
 
         def valid_flags
-            super << :RW
+            super << :RW << :R
         end
 
-        def read_only?
-            !write?
+        def read?
+            flags.include?(:RW) || flags.include?(:IO) || flags.include?(:R)
         end
         
         def write?

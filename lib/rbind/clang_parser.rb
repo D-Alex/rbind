@@ -110,25 +110,32 @@ module Rbind
 
         # entry call to parse a file
         def process(cursor,parent = self)
-            cursor.visit_children(false) do |cu,_|
-             #   puts "----->#{cu.kind} #{cu.spelling} #{cu.type.kind} #{cu.specialized_template.kind}"
+            access = :public
+            cursor.visit_children(false) do |cu,cu_parent|
+                #   puts "----->#{cu.kind} #{cu.spelling} #{cu.type.kind} #{cu.specialized_template.kind}"
                 case cu.kind
                 when :namespace
                     process_namespace(cu,parent)
                 when :enum_decl
-                    process_enum(cu,parent)
+                    process_enum(cu,parent) if access == :public
                 when :union_decl
-            #        puts "got union declaration #{cu.spelling}"
+                    #        puts "got union declaration #{cu.spelling}"
                 when :struct_decl
-                    process_class(cu,parent)
+                    if access == :public
+                        process_class(cu,parent)
+                    end
                 when :class_decl
-                    process_class(cu,parent)
+                    if access == :public
+                        access = :private
+                        process_class(cu,parent)
+                        access = :public
+                    end
                 when :function_decl
-                    process_function(cu,parent)
+                    process_function(cu,parent) if access == :public
                 when :macro_expansion # CV_WRAP ...
-         #           puts "got macro #{cu.spelling} #{cu.location}"
+                    #           puts "got macro #{cu.spelling} #{cu.location}"
                 when :function_template
-            #        puts "got template fuction #{cu.spelling} #{cu.location}"
+                    #        puts "got template fuction #{cu.spelling} #{cu.location}"
                 when :class_template
                     process_class_template(cu,parent)
                 when :template_type_parameter
@@ -142,18 +149,18 @@ module Rbind
                     p ||= parent.add_type(RClass.new(RBase.normalize(cu.spelling)))
                     parent.add_parent p,access
                 when :field_decl
-                    process_field(cu,parent)
+                    process_field(cu,parent) if access == :public
                 when :constructor
-                    process_function(cu,parent)
+                    process_function(cu,parent) if access == :public
                 when :x_method
-                    process_function(cu,parent)
+                    process_function(cu,parent) if access == :public
                 when :typedef_decl
                     # rename object if parent has no name
                     if parent.name == "unknown"
                         puts "rename #{parent.full_name} to #{cu.spelling}: #{cu.location}"
                     end
                 when :var_decl
-                    process_variable(cu,parent)
+                    process_variable(cu,parent) if access == :public
                 else
                     #puts "skip: #{cu.spelling}"
                 end
@@ -200,8 +207,7 @@ module Rbind
             name = cursor.spelling
             ClangParser.log.info "processing field #{parent}::#{name}"
             var =  process_parameter(cursor,parent)
-            # TODO write flag
-            attr = RAttribute.new(var.name,var.type)
+            attr = RAttribute.new(var.name,var.type,:RW)
             parent.add_attribute attr
             attr
         end
@@ -295,7 +301,7 @@ module Rbind
         rescue RuntimeError => e
             ClangParser.log.info "skipping instance method #{parent.full_name}::#{name}: #{e}"
         end
-        
+
         # type_getter is also used for :result_type
         def process_parameter(cursor,parent,type_getter = :type)
             para_name = cursor.spelling
@@ -358,10 +364,10 @@ module Rbind
                        # qualifier are not provided
                        expression = cursor.expression.join(" ")
                        inner_types = if expression =~ /<([ \w\*&,]*)>/
-                                        $1
-                                    else
-                                        raise RuntimeError,"Cannot parse template type"
-                                    end
+                                         $1
+                                     else
+                                         raise RuntimeError,"Cannot parse template type"
+                                     end
 
                        inner_types = inner_types.split(",").map do |inner_type|
                            parent.type(inner_type)
