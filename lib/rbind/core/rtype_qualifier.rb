@@ -13,8 +13,10 @@ module Rbind
             !!@const
         end
 
-        def to_raw
-            __getobj__
+        def to_single_ptr
+            t = to_raw
+            t = t.to_const if const?
+            t.to_ptr
         end
 
         def to_ptr
@@ -27,6 +29,10 @@ module Rbind
 
         def to_const
             RTypeQualifier.new(self,:const => true)
+        end
+
+        def remove_const
+            __getobj__
         end
 
         def raw?
@@ -45,7 +51,7 @@ module Rbind
             str = if const?
                       "const "
                   end
-            to_raw.generate_signatures.map do |s|
+            __getobj__.generate_signatures.map do |s|
                 str + s
             end
         end

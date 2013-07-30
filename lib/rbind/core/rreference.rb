@@ -8,10 +8,6 @@ module Rbind
             super(type)
         end
 
-        def to_raw
-            __getobj__
-        end
-
         def ref?
             true
         end
@@ -36,6 +32,9 @@ module Rbind
             RTypeQualifier.new(self,:const => true)
         end
 
+        def remove_const
+            RReference.new __getobj__.remove_const
+        end
 
         def signature(sig=nil)
             generate_signatures[0]
@@ -46,7 +45,7 @@ module Rbind
         end
 
         def generate_signatures
-            to_raw.generate_signatures.map do |s|
+            __getobj__.generate_signatures.map do |s|
                 s + "&"
             end
         end

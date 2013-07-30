@@ -75,7 +75,7 @@ module Rbind
         def each_type(childs=true,all=false,&block)
             if block_given?
                 types.each do |t|
-                    next if !all && (t.ignore? || t.extern?)
+                    next if !all && (t.ignore? || t.extern? || t.template?)
                     yield t
                     t.each_type(childs,all,&block) if childs && t.respond_to?(:each_type)
                 end
@@ -292,6 +292,9 @@ module Rbind
                     end
                     @type_alias[type.alias] = type
                 end
+                if(t = @types[type.name])
+                    raise ArgumentError,"A type with the name #{t.full_name} already exists"
+                end
                 @types[type.name] = type
             end
             type
@@ -300,7 +303,7 @@ module Rbind
         def type(name,raise_ = true,search_owner = true)
             name = name.to_s
             const = name.count("const ")
-            name = name.gsub("unsigned ","u").gsub("const ","").gsub(" ","")
+            name = name.gsub("unsigned ","u").gsub("const ","").gsub(" ","").gsub(">>","> >")
 
             t = if @types.has_key?(name)
                     @types[name]
@@ -339,7 +342,7 @@ module Rbind
                               1.upto(ref_level) do
                                   t = t.to_ref
                               end
-                              t.owner.add_type(t,false)
+                             # t.owner.add_type(t,false)
                               t
                           end
                       end
@@ -347,14 +350,18 @@ module Rbind
 
             # check if type is a template and a template is registered
             # under the given name
-            t ||=  if name =~ /([:\w]*)<(.*)>$/
+            t ||=  if search_owner && name =~ /([:\w]*)<(.*)>$/
                       t = type($1,false)
                       t2 = type($2,false)
                       if t && t2
-                          t3 = t.specialize(name,t2)
-                          ::Rbind.log.info "spezialize template #{t.full_name} --> #{t3.full_name}"
-                          t.owner.add_type(t3,false)
-                          t3
+                          name = "#{t.name}<#{t2.full_name}>"
+                          t3 ||= t.owner.type(name,false,false)
+                          t3 ||= begin
+                                     t3 = t.do_specialize(name,t2)
+                                     t.owner.add_type(t3,false)
+                                     ::Rbind.log.info "spezialize template #{t.full_name} --> #{t3.full_name}"
+                                     t3
+                                 end
                       end
                     end
 
@@ -428,14 +435,11 @@ module Rbind
 
         def method_missing(m,*args)
             if m != :to_ary && args.empty?
-                t = type(m.to_s,false,false) if m != :to_ary
+                t = type(m.to_s,false,false)
                 return t if t
 
                 op = operation(m.to_s,false)
                 return op if op
-
-                e = enum(m.to_s,false)
-                return e if e
 
                 c = const(m.to_s,false)
                 return c if c

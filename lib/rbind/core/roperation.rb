@@ -32,6 +32,7 @@ module Rbind
         end
 
         def ==(other)
+            return false if other.class != self.class
             return false unless name == other.name
             @parameters.each_with_index do |p,i|
                 return false if p != other.parameters[i]
@@ -88,15 +89,14 @@ module Rbind
                     if return_type.basic_type?
                         return_type.csignature
                     else
-                        return_type.to_ptr.csignature
+                        return_type.to_single_ptr.csignature
                     end
                 end
             paras = cparameters.map do |p|
                 if p.type.basic_type?
                     p.csignature
                 else
-                    tp = p.to_ptr
-                    "#{tp.csignature}"
+                    p.to_single_ptr.csignature
                 end
             end.join(", ")
             cs = "#{cs} #{cname}(#{paras})"

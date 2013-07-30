@@ -26,10 +26,6 @@ module Rbind
             other.generate_signatures[0] == generate_signatures[0]
         end
 
-        def generate_signatures
-            super
-        end
-
         # indicates of the type shall be checked before 
         # casting
         def check_type?
@@ -77,6 +73,12 @@ module Rbind
             self
         end
 
+        def to_single_ptr
+            t = to_raw
+            t = t.to_const if const?
+            t.to_ptr
+        end
+
         def to_ptr
             RPointer.new(self)
         end
@@ -87,6 +89,10 @@ module Rbind
 
         def to_const
             RTypeQualifier.new(self,:const => true)
+        end
+
+        def remove_const
+            self
         end
 
         def raw?

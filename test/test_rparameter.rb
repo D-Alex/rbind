@@ -60,7 +60,6 @@ describe Rbind::RParameter do
             parameter = Rbind::RParameter.new("para",@root.type("std::vector<const unsigned int*>").to_ptr.to_const)
             assert_equal "const std::vector<uint*>* para", parameter.to_s
         end
-
     end
 
     describe "csignature" do
@@ -68,6 +67,22 @@ describe Rbind::RParameter do
             parameter = Rbind::RParameter.new("para",@root.int)
             assert_equal "int para", parameter.csignature
         end
+
+        it "must generate a correct csignature for template types" do
+            parameter = Rbind::RParameter.new("para",@root.type("std::vector<int>"))
+            assert_equal "rbind_std_vector_int para", parameter.csignature
+
+            parameter = Rbind::RParameter.new("para",@root.type("std::vector<int>").to_ref)
+            assert_equal "rbind_std_vector_int& para", parameter.csignature
+
+            parameter = Rbind::RParameter.new("para",@root.type("std::vector<int>").to_ref.to_const)
+            assert_equal "const rbind_std_vector_int& para", parameter.csignature
+
+            parameter = Rbind::RParameter.new("para",@root.type("std::vector<int>").to_ptr)
+            assert_equal "rbind_std_vector_int* para", parameter.csignature
+
+            parameter = Rbind::RParameter.new("para",@root.type("std::vector<const unsigned int*>").to_ptr.to_const)
+            assert_equal "const rbind_std_vector_uint_ptr* para", parameter.csignature
+        end
     end
 end
-

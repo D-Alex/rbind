@@ -4,8 +4,7 @@ module Rbind
         extend ::Rbind::Logger
 
         def initialize
-            super("root")
-            self.root = true
+            super
             add_default_types
             @on_type_not_found
         end
@@ -20,16 +19,6 @@ module Rbind
                     raise "cannot parse flag #{flag.inspect}"
                 end
             end.compact
-        end
-
-        def normalize_default_value(value)
-            value = value.gsub(/std::vector</,"vector<")
-            val = value.gsub(/(.?)vector<(.*)>/,'\1vector_\2')
-            if value != val
-                normalize_default_value(val)
-            else
-                val
-            end
         end
 
         def add_data_type_name(name)
@@ -60,11 +49,21 @@ module Rbind
             @on_type_not_found = block
         end
 
+        # reverse template masking done by the opencv parser
+        def unmask_template(type_name)
+            if(type_name =~/^vector/ || type_name =~/^Ptr/)
+               type_name =~ /^([a-zA-Z\d]*)_([_a-zA-Z\d]*)(\(?.*)\)?/
+               "#{$1}<#{unmask_template($2)}>#{$3}"
+            else
+                type_name
+            end
+        end
 
         def find_type(owner,type_name)
+            type_name = unmask_template(type_name)
             t = owner.type(type_name,false)
             return t if t
-            
+
             normalized = type_name.split("_")
             name = normalized.shift
             while !normalized.empty?
@@ -88,9 +87,10 @@ module Rbind
             array = flags.shift.split(" ")
             type_name = array.shift
             para_name = array.shift
-            default = normalize_default_value(array.join(" "))
+            default = unmask_template(array.join(" "))
             type = find_type(owner,type_name)
             flags = normalize_flags(line_number,flags)
+            type = type.to_const if flags.empty? && !type.basic_type?
             RParameter.new(para_name,type,default,flags)
         rescue RuntimeError => e
             raise "input line #{line_number}: #{e}"

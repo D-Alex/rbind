@@ -169,7 +169,7 @@ module Rbind
                def wrap_parameters
                    cparameters.map do |arg|
                        next if arg.type.basic_type?
-                       "#{"const " if !arg.write? }#{arg.type.full_name} *#{arg.name}_ = fromC(#{arg.name});\n\t"
+                       "#{arg.type.to_single_ptr.signature} #{arg.name}_ = fromC(#{arg.name});\n\t"
                    end.compact.join("")
                end
 

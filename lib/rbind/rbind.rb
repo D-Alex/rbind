@@ -191,22 +191,22 @@ module Rbind
             @generator_c.libs
         end
 
-        def import_std_string
+        def add_std_string
             @generator_c.includes << "<string>"
             @parser.add_type(StdString.new("std::string",@parser))
             @parser.type_alias["basic_string"] = @parser.std.string
             self
         end
 
-        def import_std_vector
+        def add_std_vector
             @generator_c.includes << "<vector>"
-            @parser.add_type(StdVector.new("std::vector",@parser))
+            @parser.add_type(StdVector.new("std::vector"))
             self
         end
 
-        def import_std_types
-            import_std_vector
-            import_std_string
+        def add_std_types
+            add_std_vector
+            add_std_string
         end
 
         def method_missing(m,*args)

@@ -18,19 +18,26 @@ module Rbind
             def to_cname(name)
                 name = normalize(name)
                 cn = "#{cprefix}#{name.gsub("::","_")}"
-                cn = cn.gsub("()","_fct")
-                cn = cn.gsub("!=","_unequal")
-                cn = cn.gsub("==","_equal")
-                cn = cn.gsub("&=","_and_set")
-                cn = cn.gsub("+=","_add")
-                cn = cn.gsub("-=","_sub")
-                cn = cn.gsub("+","_plus")
-                cn = cn.gsub("-","_minus")
-                cn = cn.gsub("*","_mult")
-                cn = cn.gsub("/","_div")
-                cn = cn.gsub("!","_not")
-                cn = cn.gsub("&","_and")
-                cn.gsub("[]","_array")
+                if cn =~ /operator/
+                    cn = cn.gsub("operator()","operator_fct")
+                    cn = cn.gsub("operator!=","operator_unequal")
+                    cn = cn.gsub("operator==","operator_equal")
+                    cn = cn.gsub("operator&=","operator_and_set")
+                    cn = cn.gsub("operator+=","operator_add")
+                    cn = cn.gsub("operator-=","operator_sub")
+                    cn = cn.gsub("operator+","operator_plus")
+                    cn = cn.gsub("operator-","operator_minus")
+                    cn = cn.gsub("operator*","operator_mult")
+                    cn = cn.gsub("operator/","operator_div")
+                    cn = cn.gsub("operator!","operator_not")
+                    cn = cn.gsub("operator&","operator_and")
+                    cn = cn.gsub("operator[]","operator_array")
+                end
+                cn = cn.gsub("*","_ptr")
+                cn = cn.gsub("&","_ref")
+                cn = cn.gsub("<","_")
+                cn = cn.gsub(">","")
+                cn = cn.gsub(",","__")
             end
 
             def normalize(name)
@@ -147,16 +154,23 @@ module Rbind
         end
 
         def owner=(obj)
-            if obj.respond_to?(:root?) && !obj.root?
-                @namespace = obj.full_name
-            else
-                @namespace = nil
-            end
+            raise ArgumentError,"Cannot at self as owner" if obj == self
             @owner = obj
+            @namespace = nil
         end
 
         def ignore?
             !!@ignore
+        end
+
+        def namespace
+            if @namespace
+                @namespace
+            elsif @owner.respond_to?(:root?) && !@owner.root?
+                @owner.full_name
+            else
+                nil
+            end
         end
 
         def namespace?

@@ -16,10 +16,6 @@ module Rbind
             super.to_s + "*"
         end
 
-        def to_raw
-            __getobj__
-        end
-
         def signature(sig=nil)
             super.to_s + "*"
         end
@@ -38,6 +34,10 @@ module Rbind
 
         def raw?
             false
+        end
+
+        def remove_const
+            RPointer.new __getobj__.remove_const
         end
 
         def to_ptr
@@ -61,7 +61,7 @@ module Rbind
         end
 
         def generate_signatures
-            to_raw.generate_signatures.map do |s|
+            __getobj__.generate_signatures.map do |s|
                 s + "*"
             end
         end

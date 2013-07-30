@@ -130,6 +130,11 @@ module Rbind
         end
 
         def add_parent(klass,accessor=:public)
+            klass,accessor = if klass.is_a?(ParentClass)
+                                 [klass.type,klass.accessor]
+                             else
+                                 [klass,accessor]
+                             end
             if @parent_classes.has_key? klass.name
                 raise ArgumentError,"#A parent class with the name #{klass.name} already exists"
             end

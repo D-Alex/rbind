@@ -26,10 +26,23 @@ module Rbind
             end
         end
 
-        def to_ptr
-            t = self.dup
-            t.type = t.type.to_ptr
+        def to_single_ptr
+            t = self.clone
+            t.type = type.to_single_ptr
             t
+        end
+
+        def remove_const!
+            @type = type.remove_const
+            self
+        end
+
+        def const?
+            type.const?
+        end
+
+        def ref?
+            type.ref?
         end
 
         def valid_flags
@@ -38,9 +51,9 @@ module Rbind
 
         def generate_signatures
             if default_value
-                super.map do |s|
-                    "#{s} = #{default_value}"
-                end
+                sigs = super
+                sigs[0] += " = #{default_value}"
+                sigs
             else
                 super
             end

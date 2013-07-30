@@ -49,7 +49,7 @@ module Rbind
                           normalize_type_name(parameter.default_value)
                       end
                   else
-                      if(parameter.default_value =~ /([\w:]*) *\((.*)\)/)
+                      if(parameter.default_value =~ /([\w:<>]*) *\((.*)\)/)
                           t = parameter.owner.owner.type($1,false)
                           ops = Array(parameter.owner.owner.operation($1,false)) if !t
                           t,ops = if t || !ops.empty?
