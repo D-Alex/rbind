@@ -1,5 +1,10 @@
 
 module Rbind
+    class RTemplateParameter < RDataType
+        def template?
+            true
+        end
+    end
 
     class RTemplateClassSpecialization < RClass
         attr_accessor :template,:template_parameters

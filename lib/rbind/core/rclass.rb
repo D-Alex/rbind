@@ -1,16 +1,47 @@
 
 module Rbind
-    class RClass < RStruct
+    class RClass < RNamespace
         attr_reader :parent_classes
+        attr_reader :attributes
         ParentClass = Struct.new(:type,:accessor)
 
         def initialize(name,*parent_classes)
             @parent_classes  = Hash.new
+            @attributes = Hash.new
             parent_classes.flatten!
             parent_classes.each do |p|
                 add_parent(p)
             end
             super(name)
+        end
+
+        def basic_type?
+            false
+        end
+
+        def constructor?
+            ops = Array(operation(name,false))
+            return false unless ops
+            op = ops.find do |op|
+                op.constructor?
+            end
+            !!op
+        end
+
+        def add_attribute(attr)
+            if attr.namespace?
+                type(attr.namespace).add_attribute(attr)
+            else
+                if @attributes.has_key? attr.name
+                    raise "#An attribute with the name #{attr.name} already exists"
+                end
+                attr.owner = self
+                @attributes[attr.name] = attr
+                # add getter and setter methods to the object
+                add_operation(RGetter.new(attr)) if attr.readable?
+                add_operation(RSetter.new(attr)) if attr.writeable?
+            end
+            self
         end
 
         def attributes
@@ -109,6 +140,21 @@ module Rbind
             end
         end
 
+        def cdelete_method
+            if @cdelete_method
+                @cdelete_method
+            else
+                if cname =~ /^#{RBase.cprefix}(.*)/
+                    "#{RBase.cprefix}delete_#{$1}"
+                else
+                    "#{RBase.cprefix}delete_#{name}"
+                end
+            end
+        end
+
+        def empty?
+            super && parent_classes.empty? && attributes.empty?
+        end
 
         def pretty_print_name
             str = "class #{full_name}"
@@ -121,12 +167,20 @@ module Rbind
             str
         end
 
-        def empty?
-            super && parent_classes.empty?
-        end
-
         def pretty_print(pp)
             super
+            unless attributes.empty?
+                pp.nest(2) do
+                    pp.breakable
+                    pp.text "Attributes:"
+                    pp.nest(2) do
+                        attributes.each do |a|
+                            pp.breakable
+                            pp.pp(a)
+                        end
+                    end
+                end
+            end
         end
 
         def add_parent(klass,accessor=:public)

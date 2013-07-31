@@ -6,20 +6,11 @@ module Rbind
         attr_accessor :invalid_value
         attr_accessor :cdelete_method
         attr_accessor :check_type
-        attr_accessor :extern_package_name
 
-        def initialize(name,*flags)
+        def initialize(name)
             super
             @invalid_value = 0
             @check_type = true
-        end
-
-        def extern?
-           @flags.include? :Extern
-        end
-
-        def valid_flags
-            super << :Extern
         end
 
         def ==(other)

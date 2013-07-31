@@ -26,8 +26,6 @@ module Rbind
             @root.each_type do |t|
                 if t.is_a? RClass
                     file_extern.write "class #{GeneratorExtern.normalize_type_name(t.full_name)} /Extern\n"
-                elsif t.is_a? RStruct
-                    file_extern.write "struct #{GeneratorExtern.normalize_type_name(t.full_name)} /Extern\n"
                 end
             end
 

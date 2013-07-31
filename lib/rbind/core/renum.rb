@@ -3,8 +3,8 @@ module Rbind
     class REnum < RDataType
         attr_accessor :values
 
-        def initialize(name,*flags)
-            super(name,*flags)
+        def initialize(name)
+            super(name)
             @values = Hash.new
         end
 
@@ -18,10 +18,6 @@ module Rbind
 
         def add_value(name,val)
             @values[name] = val
-        end
-
-        def pretty_print(pp)
-            pp.text "#{signature}#{" Flags: #{flags.join(", ")}" unless flags.empty?}"
         end
     end
 end

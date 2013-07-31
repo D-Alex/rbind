@@ -7,11 +7,11 @@ module Rbind
             vector_type = parameters.flatten.first
 
             klass.add_operation ROperation.new(klass.name,nil)
-            klass.add_operation ROperation.new(klass.name,nil,RParameter.new("other",klass))
+            klass.add_operation ROperation.new(klass.name,nil,RParameter.new("other",klass).to_const)
 
             para = Array.new
             para <<  RParameter.new("size",type("size_t"))
-            para <<  RParameter.new("val",vector_type).default_value(vector_type.full_name)
+            para <<  RParameter.new("val",vector_type).default_value(vector_type.full_name).to_const
             klass.add_operation ROperation.new("resize",type("void"),para)
             klass.add_operation ROperation.new("size",type("size_t"))
             klass.add_operation ROperation.new("capacity",type("size_t"))
@@ -22,9 +22,9 @@ module Rbind
             klass.add_operation ROperation.new("front",vector_type)
             klass.add_operation ROperation.new("back",vector_type)
             klass.add_operation ROperation.new("data",type("void *"))
-            klass.add_operation ROperation.new("push_back",type("void"),RParameter.new("other",vector_type))
+            klass.add_operation ROperation.new("push_back",type("void"),RParameter.new("other",vector_type).to_const)
             klass.add_operation ROperation.new("pop_back",type("void"))
-            klass.add_operation ROperation.new("swap",type("void"),RParameter.new("other",klass).add_flag(:IO))
+            klass.add_operation ROperation.new("swap",type("void"),RParameter.new("other",klass))
             klass
         end
 

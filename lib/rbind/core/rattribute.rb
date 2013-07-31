@@ -1,11 +1,14 @@
 module Rbind
     class RAttribute < RBase
         attr_accessor :type
+        attr_accessor :readable,:writeable
 
-        def initialize(name,type,*flags)
-            super(name,*flags)
+        def initialize(name,type)
+            super(name)
             raise ArgumentError,"no type" unless type
             @type = type
+            @readable = true
+            @writable = false
         end
 
         def ==(other)
@@ -18,16 +21,22 @@ module Rbind
             end
         end
 
-        def valid_flags
-            super << :RW << :R
+        def readable!(value = true)
+            @readable = value
+            self
         end
 
-        def read?
-            flags.include?(:RW) || flags.include?(:IO) || flags.include?(:R)
+        def writeable!(value = true)
+            @writeable = value
+            self
         end
-        
-        def write?
-            flags.include?(:RW) || flags.include?(:IO) || flags.include?(:O)
+
+        def readable?
+            !!@readable
+        end
+
+        def writeable?
+            !!@writeable
         end
     end
 end

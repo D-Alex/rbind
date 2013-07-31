@@ -414,7 +414,7 @@ module Rbind
             def add_consts(root=@root)
                 str = @root.consts.map do |c|
                     next if c.extern? || c.ignore?
-                    "    #{c.name} = #{GeneratorRuby::normalize_type_name(c.value)}\n"
+                    "    #{c.name} = #{GeneratorRuby::normalize_type_name(c.default_value)}\n"
                 end.join
                 return str unless @compact_namespace
 
@@ -495,7 +495,7 @@ module Rbind
 
             def result
                 return "" if @root.extern?
-                str = if @root.is_a? RStruct
+                str = if @root.is_a? RClass
                           @type_wrapper.result(self.binding)
                       else
                           @namespace_wrapper.result(self.binding)

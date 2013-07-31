@@ -29,6 +29,7 @@ module Rbind
         end
 
         def to_const
+            return self if const?
             RTypeQualifier.new(self,:const => true)
         end
 

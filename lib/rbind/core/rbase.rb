@@ -6,11 +6,11 @@ module Rbind
         attr_accessor :auto_alias # set to true if rbind is aliasing the object
         attr_accessor :namespace
         attr_accessor :owner
-        attr_accessor :flags
         attr_accessor :version
         attr_accessor :signature
         attr_accessor :csignature
         attr_accessor :ignore
+        attr_accessor :extern_package_name
 
         class << self
             attr_accessor :cprefix
@@ -72,16 +72,15 @@ module Rbind
         self.cprefix = "rbind_"
 
         def pretty_print(pp)
-            pp.text "#{signature}#{" Flags: #{flags.join(", ")}" unless flags.empty?}"
+            pp.text "#{signature}"
         end
 
-        def initialize(name,*flags)
+        def initialize(name)
             name = RBase::normalize(name)
             raise ArgumentError, "no name" unless name && name.size > 0
             @name = RBase::basename(name)
             @namespace = RBase::namespace(name)
             @version = 1
-            self.flags = flags.flatten.uniq.compact
         end
 
         def generate_signatures
@@ -90,6 +89,11 @@ module Rbind
 
         def ignore?
             !!@ignore
+        end
+
+        # returns true if this object is defined in another extern package
+        def extern?
+            extern_package_name && !extern_package_name.empty?
         end
 
         def signature(sig=nil)
@@ -124,31 +128,6 @@ module Rbind
                     RBase::to_cname(map_to_namespace(@alias))
                 else
                     RBase::to_cname(full_name)
-                end
-            end
-        end
-
-        def flags=(*flags)
-            flags.flatten!
-            validate_flags(flags)
-            @flags = flags
-        end
-
-        def add_flag(*flags)
-            @flags += flags
-            self
-        end
-
-        def valid_flags
-            []
-        end
-
-        def validate_flags(flags,valid_flags = self.valid_flags)
-            valid_flags = valid_flags.flatten
-            flags.each do |flag|
-                next unless flag
-                if !valid_flags.include?(flag)
-                    raise "flag #{flag} is not supported for #{self.class.name}. Supported flags are #{valid_flags}"
                 end
             end
         end

@@ -3,8 +3,8 @@ module Rbind
     class RParameter < RAttribute
         attr_accessor :default_value
 
-        def initialize(name,type,default_value=nil,*flags)
-            super(name,type,*flags)
+        def initialize(name,type,default_value=nil)
+            super(name,type)
             self.default_value = default_value
         end
 
@@ -37,6 +37,19 @@ module Rbind
             self
         end
 
+        def const!
+            return self if const?
+            @type = type.to_const
+            self
+        end
+
+        def to_const
+            return self if const?
+            para = self.dup
+            para.type = type.to_const
+            self
+        end
+
         def const?
             type.const?
         end
@@ -45,8 +58,8 @@ module Rbind
             type.ref?
         end
 
-        def valid_flags
-            [:IO,:O]
+        def basic_type?
+            type.basic_type?
         end
 
         def generate_signatures

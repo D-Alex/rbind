@@ -7,6 +7,7 @@ module Rbind
         attr_accessor :base_class
         attr_accessor :ambiguous_name
         attr_accessor :index            # index if overloaded
+        attr_accessor :static
 
         def initialize(name,return_type,*args)
             super(name)
@@ -71,12 +72,14 @@ module Rbind
             @parameters[idx]
         end
 
-        def valid_flags
-            super << :S << :explicit
+        def static?
+            !!@static
         end
 
-        def static?
-            @flags.include?(:S)
+        def to_static
+            op = self.dup
+            op.static = true
+            op
         end
 
         def generate_signatures
@@ -104,14 +107,14 @@ module Rbind
         end
 
         def instance_method?
-            owner.is_a?(RStruct) && !constructor? && !static?
+            owner.is_a?(RClass) && !constructor? && !static?
         end
 
         def owner=(obj)
             super
             @base_class ||=obj
             @cparameters = if instance_method?
-                               p = RParameter.new("rbind_obj",obj,nil,:IO)
+                               p = RParameter.new("rbind_obj",obj)
                                [p] +  @parameters
                            else
                                @parameters.dup

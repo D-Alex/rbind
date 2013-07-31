@@ -85,7 +85,7 @@ module Rbind
                @root.each_container do |type|
                    str2 = ""
                    type.each_const(false) do |c|
-                       str2 += "#{c.csignature};\n"
+                       str2 += "#{c.signature};\n"
                    end
                    if !str2.empty?
                         str += "\n\n//constants for #{type.full_name}\n"

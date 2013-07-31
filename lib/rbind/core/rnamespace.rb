@@ -32,7 +32,7 @@ module Rbind
         attr_accessor :root
         attr_accessor :type_alias
 
-        def initialize(name=nil,*flags)
+        def initialize(name=nil)
             @consts = Hash.new
             @enums = Hash.new
             @types = Hash.new
@@ -44,7 +44,7 @@ module Rbind
                          @root = true
                          "root"
                      end
-            super(name,*flags)
+            super
         end
 
         def root?
@@ -134,7 +134,7 @@ module Rbind
         end
 
         def extern?
-            return super() if self.is_a?(RStruct)
+            return super if self.is_a? RClass
 
             # check if self is container holding only
             # extern objects
@@ -147,7 +147,6 @@ module Rbind
             each_operation do |t|
                 return false
             end
-            true
         end
 
         def each_operation(all=false,&block)
@@ -239,6 +238,7 @@ module Rbind
         end
 
         def add_const(const)
+            const.const!
             if const(const.full_name,false,false)
                 raise ArgumentError,"#A const with the name #{const.full_name} already exists"
             end
@@ -302,7 +302,11 @@ module Rbind
 
         def type(name,raise_ = true,search_owner = true)
             name = name.to_s
-            const = name.count("const ")
+            constant = if name =~ /const /
+                           true
+                       else
+                           false
+                       end
             name = name.gsub("unsigned ","u").gsub("const ","").gsub(" ","").gsub(">>","> >")
 
             t = if @types.has_key?(name)
@@ -374,11 +378,15 @@ module Rbind
                 end
                 raise RuntimeError,"#{full_name} has no type called #{name}" if !t
             end
-            t
+            if constant
+                t.to_const
+            else
+                t
+            end
         end
 
         def pretty_print_name
-            "namespace #{full_name}#{" Flags: #{flags.join(", ")}" unless flags.empty?}"
+            "namespace #{full_name}"
         end
 
         def root?

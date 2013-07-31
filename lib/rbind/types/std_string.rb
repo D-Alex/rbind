@@ -12,16 +12,16 @@ module Rbind
             int = root.type("int")
             
             add_operation ROperation.new(self.name,nil)
-            add_operation ROperation.new(self.name,nil,RParameter.new("other",self))
-            add_operation ROperation.new(self.name,nil,RParameter.new("str",string),RParameter.new("size",size_t))
+            add_operation ROperation.new(self.name,nil,RParameter.new("other",self).to_const)
+            add_operation ROperation.new(self.name,nil,RParameter.new("str",string).to_const,RParameter.new("size",size_t))
             add_operation ROperation.new("size",size_t)
             add_operation ROperation.new("length",size_t)
             add_operation ROperation.new("operator[]",char,RParameter.new("idx",size_t))
             add_operation ROperation.new("c_str",const_string)
             add_operation ROperation.new("empty",bool)
             add_operation ROperation.new("clear",void)
-            add_operation ROperation.new("compare",int,RParameter.new("other",self))
-            add_operation ROperation.new("swap",void,RParameter.new("other",self).add_flag(:IO))
+            add_operation ROperation.new("compare",int,RParameter.new("other",self).to_const)
+            add_operation ROperation.new("swap",void,RParameter.new("other",self))
         end
 
         def specialize_ruby

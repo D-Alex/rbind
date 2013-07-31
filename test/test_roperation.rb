@@ -109,7 +109,7 @@ describe Rbind::ROperation do
                     p.default_value = "0"
                 end
             end
-            assert_equal "void rbind_testOperation2(const rbind_std_vector_MStruct_ptr* para = 0)", op.csignature
+            assert_equal "void rbind_testOperation2(const rbind_std_vector_MStruct_ptr* para)", op.csignature
 
             op = @root.add_operation("testOperation3") do |op|
                 op.add_parameter("para") do |p|
@@ -117,7 +117,7 @@ describe Rbind::ROperation do
                     p.default_value = "0"
                 end
             end
-            assert_equal "void rbind_testOperation3(const rbind_std_vector_MStruct_ptr* para = 0)", op.csignature
+            assert_equal "void rbind_testOperation3(const rbind_std_vector_MStruct_ptr* para)", op.csignature
 
             op = @root.add_operation("testOperation4") do |op|
                 op.return_type = type("std::vector<MStruct*>").to_ref
