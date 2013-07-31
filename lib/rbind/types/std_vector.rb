@@ -11,7 +11,7 @@ module Rbind
 
             para = Array.new
             para <<  RParameter.new("size",type("size_t"))
-            para <<  RParameter.new("val",vector_type).default_value(vector_type.full_name).to_const
+            para <<  RParameter.new("val",vector_type).default_value(vector_type.full_name+"()").to_const
             klass.add_operation ROperation.new("resize",type("void"),para)
             klass.add_operation ROperation.new("size",type("size_t"))
             klass.add_operation ROperation.new("capacity",type("size_t"))
@@ -28,6 +28,29 @@ module Rbind
             klass
         end
 
+        def specialize_ruby
+%Q$     def self.new(type,*args)
+        klass,elements = if type.class == Class
+                            [type.name,[]]
+                        else
+                            args << type
+                            e = args
+                            args = []
+                            [type.class.name,e]
+                        end
+        #remove module name
+        klass = klass.split("::")
+        klass.shift if klass.size > 1
+        klass = klass.join("_")
+        raise ArgumentError,"no std::vector defined for \#{type}" unless self.const_defined?(klass)
+        v = self.const_get(klass).new(*args)
+        elements.each do |e|
+            v << e
+        end
+        v
+    end$
+        end
+
         def specialize_ruby_specialization(klass)
             %Q$ include Enumerable
             def each(&block)
@@ -42,6 +65,7 @@ module Rbind
             end
             def <<(val)
                 push_back(val)
+                self
             end
             def delete_if(&block)
                 v = self.class.new
@@ -52,14 +76,5 @@ module Rbind
                 self
             end$
         end
-      #      Kernel.eval %Q{module ::OpenCV
-      #      module Vector
-      #          class #{GeneratorRuby.normalize_type_name(@vector_type.name)}
-      #              def self.new
-      #                  ::#{GeneratorRuby.normalize_type_name(self.name)}.new
-      #              end
-      #          end
-      #      end
-      #      }end
     end
 end

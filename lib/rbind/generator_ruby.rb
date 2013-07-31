@@ -50,6 +50,7 @@ module Rbind
                       end
                   else
                       if(parameter.default_value =~ /([\w:<>]*) *\((.*)\)/)
+                          value = $2
                           t = parameter.owner.owner.type($1,false)
                           ops = Array(parameter.owner.owner.operation($1,false)) if !t
                           t,ops = if t || !ops.empty?
@@ -65,14 +66,14 @@ module Rbind
                                           [nil,nil]
                                       end
                                   end
-                          if ops && !ops.empty?
+                          s = if ops && !ops.empty?
                               if t
-                                "#{normalize_type_name(t.full_name)}::#{normalize_method_name(ops.first.name)}(#{($2)})"
+                                "#{normalize_type_name(t.full_name)}::#{normalize_method_name(ops.first.name)}(#{(value)})"
                               else
-                                "#{normalize_method_name(ops.first.name)}(#{($2)})"
+                                "#{normalize_method_name(ops.first.name)}(#{(value)})"
                               end
                           elsif t
-                              "#{normalize_type_name(t.full_name)}.new(#{($2)})"
+                              "#{normalize_type_name(t.full_name)}.new(#{(value)})"
                           end
                       else
                           parameter.default_value
@@ -93,9 +94,21 @@ module Rbind
                 return n if n
             end
 
+            name = name.gsub(" ","")
+
+            # map all uint ... to Fixnum
             if name =~ /^u?int\d*$/ || name =~ /^u?int\d+_t$/
                 return "Fixnum"
             end
+
+            # map template classes
+            # std::vector<std::string> -> Std::Vector::Std_String
+            if name =~ /([\w:]*)<(.*)>$/
+                return "#{normalize_type_name($1)}::#{normalize_type_name($2).gsub("::","_")}"
+            else
+                name
+            end
+
             name = name.gsub(/^_/,"")
             names = name.split("::").map do |n|
                 n.gsub(/^(\w)(.*)/) do 
@@ -106,7 +119,8 @@ module Rbind
             if n == n.upcase
                 return names.join("::")
             end
-            names.join("::").split("_").map do |n|
+
+            name = names.join("::").split("_").map do |n|
                 n.gsub(/^(\w)(.*)/) do 
                     $1.upcase+$2
                 end
@@ -240,23 +254,23 @@ module Rbind
                                           "#{normalize_t op.owner.full_name}"
                                       else
                                           if op.return_type.basic_type?
-                                              ":#{normalize_bt op.return_type.csignature}"
+                                              ":#{normalize_bt op.return_type.to_raw.csignature}"
                                           else
                                               if op.return_type.extern_package_name
-                                                  normalize_t("::#{op.return_type.extern_package_name}::#{op.return_type.full_name}")
+                                                  normalize_t("::#{op.return_type.extern_package_name}::#{op.return_type.to_raw.full_name}")
                                               else
-                                                  normalize_t op.return_type.full_name
+                                                  normalize_t op.return_type.to_raw.full_name
                                               end
                                           end
                                       end
                         args = op.cparameters.map do |p|
                             if p.type.basic_type?
-                                ":#{normalize_bt p.type.csignature}"
+                                ":#{normalize_bt p.type.to_raw.csignature}"
                             else
                                 if p.type.extern_package_name
-                                    normalize_t("::#{p.type.extern_package_name}::#{p.type.full_name}")
+                                    normalize_t("::#{p.type.extern_package_name}::#{p.type.to_raw.full_name}")
                                 else
-                                    normalize_t p.type.full_name
+                                    normalize_t p.type.to_raw.full_name
                                 end
                             end
                         end
@@ -269,6 +283,37 @@ module Rbind
                 str.gsub(/\n/,"\n        ")
             end
         end
+
+        class RTypeTemplateHelper < HelperBase
+            def initialize(name, root,compact_namespace = false)
+                @type_template_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rtype_template.rb")).read,nil,"-")
+                super(name,root)
+            end
+
+            def name
+                GeneratorRuby.normalize_type_name(@name)
+            end
+
+            def cname
+                GeneratorRuby.normalize_type_name(@root.cname)
+            end
+
+            def add_specializing(root = @root)
+                if @root.respond_to?(:specialize_ruby)
+                    root.specialize_ruby
+                else
+                    ""
+                end
+            end
+
+            def result
+                return "" if @root.extern?
+                str = @type_template_wrapper.result(self.binding)
+                str.gsub!("\n","\n    ").gsub!("    \n","\n")
+                "    "+str[0,str.size-4]
+            end
+        end
+
 
         class RTypeHelper < HelperBase
             class OperationHelper < SimpleDelegator
@@ -283,7 +328,7 @@ module Rbind
 
                 def signature_default_values
                     str = parameters.map do |p|
-                        if p.default_value 
+                        if p.default_value
                             GeneratorRuby.normalize_default_value p
                         else
                             "nil"
@@ -478,13 +523,16 @@ module Rbind
 
             def add_types(root = @root)
                 str = ""
-                root.each_type(false) do |t|
+                root.each_type(false,true) do |t|
+                    next if t.ignore? || t.extern?
                     next if t.basic_type? && !t.is_a?(RNamespace)
                     str += if @compact_namespace && name == GeneratorRuby.normalize_type_name(t.full_name)
-                        add_types(t)
-                    else
-                        RTypeHelper.new(t.name,t).result
-                    end
+                               add_types(t)
+                           elsif t.template?
+                               RTypeTemplateHelper.new(t.name,t).result
+                           else
+                               RTypeHelper.new(t.name,t).result
+                           end
                 end
                 str
             end

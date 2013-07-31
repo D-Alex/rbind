@@ -47,9 +47,16 @@ module Rbind
 
         # reverse template masking done by the opencv parser
         def unmask_template(type_name)
+            if(type_name =~/<.*>/)
+                return type_name
+            end
+
             if(type_name =~/^vector/ || type_name =~/^Ptr/)
-               type_name =~ /^([a-zA-Z\d]*)_([_a-zA-Z\d]*)(\(?.*)\)?/
-               "#{$1}<#{unmask_template($2)}>#{$3}"
+               if(type_name =~ /^([a-zA-Z\d]*)_([_a-zA-Z\d]*) ?(\(?.*)\)? */)
+                  "#{$1}<#{unmask_template($2)}>#{$3}"
+               else
+                   type_name
+               end
             else
                 type_name
             end
