@@ -119,6 +119,18 @@ module Clang
                 location[2]
             end
 
+            def private?
+                cxx_access_specifier == :x_private
+            end
+
+            def public?
+                cxx_access_specifier == :x_public
+            end
+
+            def protected?
+                cxx_access_specifier == :x_protected
+            end
+
             def cxx_access_specifier
                 Rbind::get_cxx_access_specifier self
             end

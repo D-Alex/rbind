@@ -27,14 +27,12 @@ module Rbind
         attr_reader :operations
         attr_reader :operation_alias
         attr_reader :consts
-        attr_reader :enums
         attr_reader :used_namespaces
-        attr_accessor :root
-        attr_accessor :type_alias
+        attr_reader :type_alias
+        attr_reader :root
 
-        def initialize(name=nil)
+        def initialize(name=nil,root = nil)
             @consts = Hash.new
-            @enums = Hash.new
             @types = Hash.new
             @type_alias = Hash.new
             @operations = Hash.new{|hash,key| hash[key] = Array.new}
@@ -44,7 +42,17 @@ module Rbind
                          @root = true
                          "root"
                      end
-            super
+            if root
+                #share varaibales accross root namesapces
+                raise "#{root} is not a root namespace" unless root.root?
+                @consts = root.instance_variable_get(:@consts)
+                @types = root.instance_variable_get(:@types)
+                @type_alias = root.instance_variable_get(:@type_alias)
+                @operations = root.instance_variable_get(:@operations)
+                @operation_alias =root.instance_variable_get(:@operation_alias)
+                @used_namespaces = root.instance_variable_get(:@used_namespaces)
+            end
+            super(name)
         end
 
         def root?

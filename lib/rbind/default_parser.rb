@@ -3,10 +3,9 @@ module Rbind
     class DefaultParser < RNamespace
         extend ::Rbind::Logger
 
-        def initialize
-            super
-            add_default_types
-            @on_type_not_found
+        def initialize(root = nil)
+            super(nil,root)
+            add_default_types if !root
         end
 
         def normalize_flags(line_number,flags,*valid_flags)

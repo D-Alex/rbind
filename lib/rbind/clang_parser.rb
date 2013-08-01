@@ -38,10 +38,9 @@ module Rbind
         include Hooks
         extend ::Rbind::Logger
 
-        def initialize(args = ["-xc++","-fno-rtti"])
-            super()
-            add_default_types
-            add_type(StdVector.new("std::vector"))
+        def initialize(args = ["-xc++","-fno-rtti"],root=nil)
+            super(nil,root)
+            add_default_types if !root
             @clang = Clang::Clang.new
         end
 
@@ -166,13 +165,13 @@ module Rbind
                 when :x_access_specifier
                     access = normalize_accessor(cu.cxx_access_specifier)
                 when :x_base_specifier
-                    access = normalize_accessor(cu.cxx_access_specifier)
+                    local_access = normalize_accessor(cu.cxx_access_specifier)
                     p = parent.type(RBase.normalize(cu.spelling),false)
                     ClangParser.log.info "auto add parent class #{cu.spelling}" unless p
                     p ||= parent.add_type(RClass.new(RBase.normalize(cu.spelling)))
-                    parent.add_parent p,access
+                    parent.add_parent p,local_access
                 when :field_decl
-                    process_field(cu,parent) if access == :public
+                    process_field(cu,parent) if cu.public?
                 when :constructor
                     f = process_function(cu,parent) if access == :public
                     f.return_type = nil
@@ -248,7 +247,7 @@ module Rbind
             attr
         end
 
-        def process_class_template(cursor,parent,default_access = :private)
+        def process_class_template(cursor,parent)
             class_name = cursor.spelling
             ClangParser.log.info "processing class template #{parent}::#{class_name}"
 

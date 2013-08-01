@@ -46,7 +46,7 @@ module Rbind
             end
         end
 
-        def initialize(name,parser = DefaultParser)
+        def initialize(name,parser = DefaultParser.new)
             @name = name
             @includes = []
             @pkg_config = []

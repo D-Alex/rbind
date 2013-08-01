@@ -157,7 +157,7 @@ module Rbind
         end
 
         def pretty_print_name
-            str = "class #{full_name}"
+            str = "#{"template " if template?}class #{full_name}"
             unless parent_classes.empty?
                 parents = parent_classes.map do |p|
                     p.type.full_name
