@@ -19,7 +19,7 @@ module Rbind
                                    :bool,:double,:float,:void,:char,:size_t,:long,
                                    :uchar, :char16, :char32, :ushort, :ulong, :ulong_long,
                                    :uint128, :short, :long_long, :int128, :long_double,
-                                   :c_string]
+                                   :c_string,:constant_array]
         self.default_type_alias= { :u_char => :uchar, :u_short => :ushort, :u_long => :ulong,
                                    :u_long_long => :ulong_long,:u_int => :uint, :uint128 => :uint128,
                                    :char_s => :char}
@@ -39,7 +39,7 @@ module Rbind
             @type_alias = Hash.new
             @operations = Hash.new{|hash,key| hash[key] = Array.new}
             @operation_alias = Hash.new{|hash,key| hash[key] = Array.new}
-            @used_namespaces = Hash.new
+            @used_namespaces = Array.new
             name ||= begin
                          @root = true
                          "root"
@@ -69,7 +69,17 @@ module Rbind
         end
 
         def use_namespace(namespace)
-            @used_namespaces[namespace.name] = namespace
+            # Check if there is another root embedded
+            # and add the corresponding namespace.
+            # This is needed to support multiple roots providing
+            # types to the same namespace
+            @used_namespaces.each do |ns|
+                next unless ns.root?
+                if (ns2 = ns.type(namespace.full_name,false))
+                    @used_namespaces << ns2 if ns.object_id != namespace.object_id
+                end
+            end
+            @used_namespaces << namespace
         end
 
         def each_type(childs=true,all=false,&block)
@@ -84,8 +94,8 @@ module Rbind
             end
         end
 
-        def each_container(all=false,&block)
-            each_type(true,all) do |t|
+        def each_container(childs=true,all=false,&block)
+            each_type(childs,all) do |t|
                 next unless t.container?
                 yield t
             end
@@ -105,7 +115,7 @@ module Rbind
                     end
                 end
             c ||= begin
-                      used_namespaces.values.each do |ns|
+                      used_namespaces.each do |ns|
                           c = ns.const(name,false,false)
                           break if c
                       end
@@ -125,7 +135,7 @@ module Rbind
                     yield c
                 end
                 return unless childs
-                each_container(all) do |t|
+                each_container(false,all) do |t|
                     t.each_const(childs,all,&block)
                 end
             else
@@ -290,12 +300,11 @@ module Rbind
                     if check_exist && type(type.alias,false,false)
                         raise ArgumentError,"A type with the name alias #{type.alias} already exists"
                     end
-                    @type_alias[type.alias] = type
+                    raise ArgumentError,"A type alias with the name #{t.alias} already exists" if(t = @type_alias[type.alias])
+                    @type_alias[type.alias] = type.to_raw
                 end
-                if(t = @types[type.name])
-                    raise ArgumentError,"A type with the name #{t.full_name} already exists"
-                end
-                @types[type.name] = type
+                raise ArgumentError,"A type with the name #{t.full_name} already exists" if(t = @types[type.name])
+                @types[type.name] = type.to_raw
             end
             type
         end
@@ -322,7 +331,7 @@ module Rbind
                     end
                 end
             t ||= begin
-                      used_namespaces.values.each do |ns|
+                      used_namespaces.each do |ns|
                           t = ns.type(name,false,false)
                           break if t
                       end
@@ -355,16 +364,26 @@ module Rbind
             # check if type is a template and a template is registered
             # under the given name
             t ||=  if search_owner && name =~ /([:\w]*)<(.*)>$/
-                      t = type($1,false)
-                      t2 = type($2,false)
+                      t = type($1,false) if $1 && !$1.empty?
+                      t2 = type($2,false) if $2 && !$2.empty?
                       if t && t2
                           name = "#{t.name}<#{t2.full_name}>"
                           t3 ||= t.owner.type(name,false,false)
                           t3 ||= begin
-                                     t3 = t.do_specialize(name,t2)
-                                     t.owner.add_type(t3,false)
-                                     ::Rbind.log.info "spezialize template #{t.full_name} --> #{t3.full_name}"
-                                     t3
+                                     if !t.template?
+                                         ::Rbind.log.error "try to spezialize a class #{t.full_name} --> #{name}"
+                                         nil
+                                     else
+                                         t3 = t.do_specialize(name,t2)
+                                         if !t3
+                                             ::Rbind.log.error "Failed to specialize template #{t.full_name} --> #{name}"
+                                             nil
+                                         else
+                                             t.owner.add_type(t3,false)
+                                             ::Rbind.log.info "spezialize template #{t.full_name} --> #{t3.full_name}"
+                                             t3
+                                         end
+                                     end
                                  end
                       end
                     end
@@ -398,7 +417,7 @@ module Rbind
         end
 
         def pretty_print(pp)
-            pp.text pretty_print_name
+            pp.text pretty_print_name unless root?
 
             unless consts.empty?
                 pp.nest(2) do
@@ -417,7 +436,20 @@ module Rbind
                     pp.breakable
                     pp.text "Types:"
                     pp.nest(2) do
+                        simple = []
+                        other = []
                         types.each do |t|
+                            if t.basic_type? && !t.container?
+                                simple << t.name
+                            else 
+                                other << t
+                            end
+                        end
+                        if !simple.empty?
+                            pp.breakable
+                            pp.text(simple.join(", "))
+                        end
+                        other.each do |t|
                             pp.breakable
                             pp.pp(t)
                         end

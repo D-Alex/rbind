@@ -13,7 +13,6 @@ module Rbind
             super(name)
             @return_type = return_type
             @parameters = args.flatten
-            @cparameters = @parameters.dup
         end
 
         def add_parameter(para,&block)
@@ -29,7 +28,6 @@ module Rbind
                 raise RuntimeError,"duplicate parameter name #{para}"
             end
             @parameters << para
-            @cparameters << para
         end
 
         def ==(other)
@@ -110,15 +108,19 @@ module Rbind
             owner.is_a?(RClass) && !constructor? && !static?
         end
 
+        def cparameters
+            return @cparameters if @cparameters
+            if instance_method?
+                p = RParameter.new("rbind_obj",owner)
+                [p] +  @parameters
+            else
+                @parameters.dup
+            end
+        end
+
         def owner=(obj)
             super
             @base_class ||=obj
-            @cparameters = if instance_method?
-                               p = RParameter.new("rbind_obj",obj)
-                               [p] +  @parameters
-                           else
-                               @parameters.dup
-                           end
             @parameters.each do |para|
                 para.owner = self
             end

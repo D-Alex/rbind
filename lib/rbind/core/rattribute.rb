@@ -1,7 +1,6 @@
 module Rbind
     class RAttribute < RBase
         attr_accessor :type
-        attr_accessor :readable,:writeable
 
         def initialize(name,type)
             super(name)

@@ -113,7 +113,7 @@ module Rbind
         def used_namespaces
             namespaces = super.clone
             parent_classes.each do |k|
-                namespaces.merge k.type.used_namespaces
+                namespaces += k.type.used_namespaces
             end
             namespaces
         end

@@ -120,7 +120,7 @@ module Rbind
         def parse_class(line_number,string)
             lines = string.split("\n")
             a = lines.shift.rstrip
-            unless a =~ /class ([a-zA-Z\.\d_:]*) ?:?([a-zA-Z\.\:, \d_]*)(.*)/
+            unless a =~ /class ([<>a-zA-Z\.\d_:]*) ?:?([<>a-zA-Z\.\:, \d_]*)(.*)/
                 raise "cannot parse class #{a}"
             end
             name = $1

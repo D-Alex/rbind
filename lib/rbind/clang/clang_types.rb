@@ -99,6 +99,10 @@ module Clang
                 result
             end
 
+            def location_int
+                Rbind::get_cursor_location(self)[:int_data]
+            end
+
             def referenced
                 Rbind::get_cursor_referenced self
             end
@@ -123,6 +127,24 @@ module Clang
                 Rbind::get_cursor_extent self
             end
 
+            def semantic_parent
+                Rbind::get_cursor_semantic_parent self
+            end
+            
+            def namespace
+                namespace = []
+                cursor = semantic_parent
+                while !cursor.translation_unit?
+                    namespace << cursor.spelling
+                    cursor = cursor.semantic_parent
+                end
+                namespace.reverse.join("::")
+            end
+
+            def translation_unit?
+                kind == :translation_unit
+            end
+            
             def expression
                 num = FFI::MemoryPointer.new(:uint,1)
                 tokens = FFI::MemoryPointer.new(:pointer,1)
@@ -176,26 +198,41 @@ module Clang
                 Rbind::get_template_cursor_kind self
             end
 
-            #attach_function :get_cxx_access_specifier, :clang_getCXXAccessSpecifier, [Cursor.by_value], :cxx_access_specifier
-            #attach_function :is_cursor_definition, :clang_isCursorDefinition, [Cursor.by_value], :uint
-            #attach_function :get_canonical_cursor, :clang_getCanonicalCursor, [Cursor.by_value], Cursor.by_value
-            #attach_function :cxx_method_is_static, :clang_CXXMethod_isStatic, [Cursor.by_value], :uint
-            #attach_function :cxx_method_is_virtual, :clang_CXXMethod_isVirtual, [Cursor.by_value], :uint
-            #attach_function :get_num_overloaded_decls, :clang_getNumOverloadedDecls, [Cursor.by_value], :uint
+            def complete?
+                !incomplete?
+            end
 
-            def visit_children(recurse=false,&block)
-                orig_file = translation_unit.spelling
+            def incomplete?
+                definition.null?
+            end
+
+            def definition
+                Rbind::get_cursor_definition self
+            end
+
+            def static?
+                1 == Rbind::cxx_method_is_static(self)
+            end
+
+            def virtual?
+                1 == Rbind::cxx_method_is_virtual(self)
+            end
+
+            def visit_children(recurse=false,*reg_filters,&block)
+                if reg_filters.empty?
+                    reg_filters << Regexp.new("#{File.dirname(translation_unit.spelling)}")
+                end
                 p = proc do |cur,parent,data|
                   #  puts "#{cur.kind} #{cur.spelling} #{cur.template_kind} #{cur.specialized_template.kind} #{cur.location}"
-                    if cur.file_name != orig_file
-                        :continue
-                    else
+                    if(reg_filters.find{|reg| cur.file_name =~ reg})
                         block.call(cur,parent)
                         if recurse
                             :recurse
                         else
                             :continue
                         end
+                    else
+                        :continue
                     end
                 end
                 Rbind::visit_children(self,p,FFI::Pointer.new(0))

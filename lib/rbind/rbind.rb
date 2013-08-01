@@ -2,9 +2,9 @@ require 'open3'
 
 module Rbind
     class Rbind
-        attr_accessor :parser
-        attr_accessor :generator_c
-        attr_accessor :generator_ruby
+        attr_reader :parser
+        attr_reader :generator_c
+        attr_reader :generator_ruby
         attr_accessor :includes
         attr_accessor :name
         attr_accessor :pkg_config
@@ -46,12 +46,12 @@ module Rbind
             end
         end
 
-        def initialize(name)
+        def initialize(name,parser = DefaultParser)
             @name = name
             @includes = []
             @pkg_config = []
             @gems = []
-            @parser = DefaultParser.new
+            @parser = parser
             lib_name = "rbind_#{name.downcase}"
             @generator_c = GeneratorC.new(@parser,lib_name)
             @generator_ruby = GeneratorRuby.new(@parser,name,lib_name)
@@ -87,20 +87,25 @@ module Rbind
 
         # parses other rbind packages
         def parse_extern
+            # extern package are always paresed with the default parser 
+            local_parser = DefaultParser.new
             paths = Rbind.rbind_pkg_paths(@pkg_config)
             paths.each do |pkg|
                 config = YAML.load(File.open(File.join(pkg,"config.rbind")).read)
                 path = File.join(pkg,"extern.rbind")
                 ::Rbind.log.info "parsing extern rbind pkg file #{path}"
-                parser.parse(File.open(path).read,config.ruby_module_name)
+                local_parser.parse(File.open(path).read,config.ruby_module_name)
             end
             @gems.each do |gem|
                 path = Rbind.gem_path(gem)
                 config = YAML.load(File.open(File.join(path,"config.rbind")).read)
                 path = File.join(path,"extern.rbind")
                 ::Rbind.log.info "parsing extern gem file #{path}"
-                parser.parse(File.open(path).read,config.ruby_module_name)
+                local_parser.parse(File.open(path).read,config.ruby_module_name)
             end
+            # embed the parsed data into the actual parser
+            parser.use_namespace(local_parser)
+            self
         end
 
         def parse_headers_dry(*headers)

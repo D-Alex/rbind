@@ -12,8 +12,26 @@ module Rbind
                 super(message)
             end
 
+            def context(before = 10)
+                file,row,cloumn = @cursor.location
+                f = File.open(file)
+                lines = f.readlines[[0,row-before].max..row-1]
+                f.close
+                lines
+            end
+
             def to_s
-                @cursor.location.join(":") + ": " + @cursor.expression.to_s + super
+                location = @cursor.location
+                con = context
+                row = location[1] - con.size
+                con = con.map do |line|
+                    row += 1
+                    "#{row}:\t> #{line}"
+                end
+                pos_width = @cursor.location_int-@cursor.extent[:begin_int_data]
+                pos_start = location[2]-pos_width
+                con << "   \t " + " "*pos_start + "."*pos_width
+                "#{super}\n\n#{"#"*5}\nParsed File: #{location.join(":")}\n#{con.join()}\n#{"#"*5}\n\n"
             end
         end
 
@@ -27,7 +45,7 @@ module Rbind
             @clang = Clang::Clang.new
         end
 
-        def parse(file_path,args = ["-xc++","-fno-rtti"])
+        def parse(file_path,args = ["-xc++","-fno-rtti","-I/home/aduda/dev/rock1.9/install/include"])
             tu = @clang.translation_unit(file_path,args)
             process(tu.cursor)
             self
@@ -59,14 +77,12 @@ module Rbind
         end
 
         # if rbind_type is given only pointer/ref or qualifier are applied
-        def to_rbind_type(parent,cursor,rbind_type=nil,type_getter = :type)
+        def to_rbind_type(parent,cursor,rbind_type=nil,type_getter = :type,canonical = true)
             clang_type = cursor.send(type_getter)
             return nil if clang_type.null?
-            clang_type = clang_type.canonical_type
+            clang_type = clang_type.canonical_type if canonical
             clang_type,level = pointee_type(clang_type)
 
-            # generate rbind type
-            clang_type = clang_type.canonical_type
             t = if rbind_type
                     rbind_type
                 else
@@ -83,10 +99,18 @@ module Rbind
                                    cursor.spelling
                                end
                            else
-                               name
+                               namespace = clang_type.declaration.namespace
+                               if namespace.empty?
+                                   name
+                               else
+                                   "#{namespace}::#{name}"
+                               end
+
                            end
-                    parent.type(name)
+                    t = parent.type(name,!canonical)
                 end
+            # try again without canonical
+            return to_rbind_type(parent,cursor,rbind_type,type_getter,false) if !t
 
             # add pointer level
             1.upto(level) do
@@ -150,12 +174,14 @@ module Rbind
                 when :field_decl
                     process_field(cu,parent) if access == :public
                 when :constructor
-                    process_function(cu,parent) if access == :public
+                    f = process_function(cu,parent) if access == :public
+                    f.return_type = nil
+                    f
                 when :x_method
                     process_function(cu,parent) if access == :public
                 when :typedef_decl
                     # rename object if parent has no name
-                    if parent.name == "unknown"
+                    if parent.name =~ /no_name/
                         puts "rename #{parent.full_name} to #{cu.spelling}: #{cu.location}"
                     end
                 when :var_decl
@@ -175,6 +201,16 @@ module Rbind
 
         def process_enum(cursor,parent)
             name = cursor.spelling
+            name = if name.empty?
+                       n = 0.upto(10000) do |i|
+                           n = "no_name_enum_#{i}"
+                           break n if !parent.type(n,false,false)
+                       end
+                       raise "Cannot find unique enum name" unless n
+                       n
+                   else
+                       name
+                   end
             ClangParser.log.info "processing enum #{parent}::#{name}"
             enum = REnum.new(name)
             cursor.visit_children(false) do |cu,_|
@@ -206,7 +242,8 @@ module Rbind
             name = cursor.spelling
             ClangParser.log.info "processing field #{parent}::#{name}"
             var =  process_parameter(cursor,parent)
-            attr = RAttribute.new(var.name,var.type,:RW)
+            # TODO check for read write access
+            attr = RAttribute.new(var.name,var.type).writeable!
             parent.add_attribute attr
             attr
         end
@@ -234,11 +271,16 @@ module Rbind
         def process_class(cursor,parent)
             class_name = cursor.spelling
             class_name = if class_name.empty?
-                             "unknown"
+                             "no_name_class"
                          else
                              class_name
                          end
-            ClangParser.log.info "processing class #{parent}::#{class_name}"
+            if cursor.incomplete?
+                ClangParser.log.info "skipping incomplete class #{parent}::#{class_name}"
+                return
+            else
+                ClangParser.log.info "processing class #{parent}::#{class_name}"
+            end
 
             klass = parent.type(class_name,false)
             klass = if(!klass)
@@ -249,13 +291,17 @@ module Rbind
                         if klass.empty?
                             ClangParser.log.info " reopening existing class #{klass}"
                             klass
+                        elsif klass.template?
+                            ClangParser.log.info " skipping template #{name}"
+                            nil
                         else
-                            raise "Cannot reopening existing class #{klass} which has is non-empty!"
+                            ClangParser.log.warn " skipping non empty clas #{name}"
+                            #raise "Cannot reopening existing class #{klass} which is non-empty!"
+                            nil
                         end
                     end
-            #klass.flags = flags if flags
             #klass.extern_package_name = nil
-            process(cursor,klass)
+            process(cursor,klass) if klass
         end
 
         def process_function(cursor,parent)
@@ -284,7 +330,7 @@ module Rbind
                 if(!arg.default_value && (expression =~ /#{arg.name}=(\w*)/))
                     arg.default_value = $1
                 end
-                arg.name = if(arg.name == "unknown")
+                arg.name = if(arg.name == "no_name_arg")
                                arg.name + idx.to_s
                            else
                                arg.name
@@ -295,6 +341,11 @@ module Rbind
                               process_parameter(cursor,parent,:result_type).type
                           end
             op = ::Rbind::ROperation.new(name,result_type,*args)
+            op = if cursor.static?
+                     op.to_static
+                 else
+                     op
+                 end
             ClangParser.log.info "add function #{op.signature}"
             parent.add_operation(op)
         rescue RuntimeError => e
@@ -305,7 +356,7 @@ module Rbind
         def process_parameter(cursor,parent,type_getter = :type)
             para_name = cursor.spelling
             para_name = if para_name.empty?
-                            "unknown"
+                            "no_name_arg"
                         else
                             para_name
                         end
@@ -362,10 +413,10 @@ module Rbind
                        # not the case for basic types and somehow the type 
                        # qualifier are not provided
                        expression = cursor.expression.join(" ")
-                       inner_types = if expression =~ /<([ \w\*&,]*)>/
+                       inner_types = if expression =~ /<([ \w\*&,:]*)>/
                                          $1
                                      else
-                                         raise RuntimeError,"Cannot parse template type"
+                                         raise RuntimeError,"Cannot parse template type parameter."
                                      end
 
                        inner_types = inner_types.split(",").map do |inner_type|
@@ -378,7 +429,7 @@ module Rbind
                        t = parent.type(templates.join("<")+">"*(templates.size-1),true)
                        to_rbind_type(parent,cursor,t,type_getter)
                    end
-            RParameter.new(para_name,type,default_value,:IO)
+            RParameter.new(para_name,type,default_value)
         rescue RuntimeError => e
             raise ClangParserError.new(e.to_s,cursor)
         end
