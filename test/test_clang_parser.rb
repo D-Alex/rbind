@@ -56,21 +56,20 @@ describe Rbind::ClangParser do
         end
 
         it "must parse structs" do
-            next
             file = File.join(File.dirname(__FILE__),'headers','structs.hpp')
             parser = Rbind::ClangParser.new
             parser.parse file
 
-            assert_equal "void TestStruct::TestStruct(int i1, char c)", parser.TestStruct.TestStruct.signature
+            assert_equal "TestStruct::TestStruct(int i1, char c)", parser.TestStruct.TestStruct.signature
             assert_equal "void TestStruct::setB(bool val)", parser.TestStruct.setB.signature
             assert_equal "void TestStruct::setF(float& val)", parser.TestStruct.setF.signature
             assert_equal "void TestStruct::setF2(const float& val)", parser.TestStruct.setF2.signature
             assert_equal "void TestStruct::setD(double& val)", parser.TestStruct.setD.signature
-            assert_equal "TestStruct TestStruct::setS(TestStruct other)", parser.TestStruct.setS.signature
-            assert_equal "TestStruct TestStruct::setS2(TestStruct* other)", parser.TestStruct.setS2.signature
-            assert_equal "TestStruct TestStruct::setS3(TestStruct** other)", parser.TestStruct.setS3.signature
-            assert_equal "TestStruct TestStruct::setS4(TestStruct& other)", parser.TestStruct.setS4.signature
-            assert_equal "TestStruct TestStruct::setS5(const TestStruct& other)", parser.TestStruct.setS5.signature
+            assert_equal "void TestStruct::setS(TestStruct other)", parser.TestStruct.setS.signature
+            assert_equal "void TestStruct::setS2(TestStruct* other)", parser.TestStruct.setS2.signature
+            assert_equal "void TestStruct::setS3(TestStruct** other)", parser.TestStruct.setS3.signature
+            assert_equal "void TestStruct::setS4(TestStruct& other)", parser.TestStruct.setS4.signature
+            assert_equal "void TestStruct::setS5(const TestStruct& other)", parser.TestStruct.setS5.signature
             assert_equal "TestStruct TestStruct::getS()", parser.TestStruct.getS.signature
             assert_equal "TestStruct* TestStruct::getS2()", parser.TestStruct.getS2.signature
             assert_equal "TestStruct& TestStruct::getS3()", parser.TestStruct.getS3.signature

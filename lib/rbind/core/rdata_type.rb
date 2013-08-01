@@ -101,13 +101,5 @@ module Rbind
         def ref?
             false
         end
-
-        def delete!
-            if @owner
-                @owner.delete_type self.name
-            else
-                raise "#{self} has no owner."
-            end
-        end
     end
 end

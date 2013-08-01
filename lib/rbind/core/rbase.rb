@@ -76,10 +76,7 @@ module Rbind
         end
 
         def initialize(name)
-            name = RBase::normalize(name)
-            raise ArgumentError, "no name" unless name && name.size > 0
-            @name = RBase::basename(name)
-            @namespace = RBase::namespace(name)
+            rename(name)
             @version = 1
         end
 
@@ -169,6 +166,26 @@ module Rbind
                 "#{namespace}::#{name}"
             else
                 name
+            end
+        end
+
+        def rename(name)
+            old_name = self.name
+            name = RBase::normalize(name)
+            raise ArgumentError, "no name" unless name && name.size > 0
+            @name = RBase::basename(name)
+            @namespace = RBase::namespace(name)
+            if @owner
+                @owner.delete_type old_name
+                @owner.add_type(self)
+            end
+        end
+
+        def delete!
+            if @owner
+                @owner.delete_type self.name
+            else
+                raise "#{self} has no owner."
             end
         end
 

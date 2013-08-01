@@ -25,4 +25,10 @@ struct TestStruct
     int ifield;
 };
 
+typedef struct
+{
+    int i;
+}TestStruct2;
+
+
 #endif
