@@ -10,7 +10,7 @@ module Rbind
             attr_accessor :ffi_type_map
         end
         self.ruby_default_value_map ||= {"true" => "true","TRUE" => "true", "false" => "false","FALSE" => "false"}
-        self.ffi_type_map ||= {"char *" => "string","unsigned char" => "uchar" ,"const char *" => "string" }
+        self.ffi_type_map ||= {"char *" => "string","unsigned char" => "uchar" ,"const char *" => "string","uint8_t" => "uint8" }
 
 
         def self.keyword?(name)
@@ -88,18 +88,7 @@ module Rbind
 
 
         def self.normalize_type_name(name)
-            # custom normalization
-            if @on_normalize_type_name
-                n = @on_normalize_type_name.call(name)
-                return n if n
-            end
-
             name = name.gsub(" ","")
-
-            # map all uint ... to Fixnum
-            if name =~ /^u?int\d*$/ || name =~ /^u?int\d+_t$/
-                return "Fixnum"
-            end
 
             # map template classes
             # std::vector<std::string> -> Std::Vector::Std_String
@@ -107,6 +96,17 @@ module Rbind
                 return "#{normalize_type_name($1)}::#{normalize_type_name($2).gsub("::","_")}"
             else
                 name
+            end
+
+            # custom normalization
+            if @on_normalize_type_name
+                n = @on_normalize_type_name.call(name)
+                return n if n
+            end
+
+            # map all uint ... to Fixnum
+            if name =~ /^u?int\d*$/ || name =~ /^u?int\d+_t$/
+                return "Fixnum"
             end
 
             name = name.gsub(/^_/,"")
@@ -245,16 +245,20 @@ module Rbind
                     str += "\n#methods for #{t.full_name}\n"
                     if t.cdelete_method
                         str += "attach_function :#{normalize_m t.cdelete_method},"\
-                        ":#{t.cdelete_method},[#{normalize_t t.full_name}],:void\n"
+                        ":#{t.cdelete_method},[#{normalize_t(t.full_name)}],:void\n"
                         str += "attach_function :#{normalize_m t.cdelete_method}_struct,"\
-                        ":#{t.cdelete_method},[#{normalize_t t.full_name}Struct],:void\n"
+                        ":#{t.cdelete_method},[#{normalize_t(t.full_name)}Struct],:void\n"
                     end
                     t.each_operation do |op|
                         return_type = if op.constructor?
                                           "#{normalize_t op.owner.full_name}"
                                       else
                                           if op.return_type.basic_type?
-                                              ":#{normalize_bt op.return_type.to_raw.csignature}"
+                                              if op.return_type.ptr?
+                                                  ":pointer"
+                                              else
+                                                  ":#{normalize_bt op.return_type.to_raw.csignature}"
+                                              end
                                           else
                                               if op.return_type.extern_package_name
                                                   normalize_t("::#{op.return_type.extern_package_name}::#{op.return_type.to_raw.full_name}")
@@ -265,7 +269,11 @@ module Rbind
                                       end
                         args = op.cparameters.map do |p|
                             if p.type.basic_type?
-                                ":#{normalize_bt p.type.to_raw.csignature}"
+                                if p.type.ptr?
+                                    ":pointer"
+                                else
+                                    ":#{normalize_bt p.type.to_raw.csignature}"
+                                end
                             else
                                 if p.type.extern_package_name
                                     normalize_t("::#{p.type.extern_package_name}::#{p.type.to_raw.full_name}")
@@ -276,6 +284,7 @@ module Rbind
                         end
                         fct_name = normalize_m op.cname
                         str += "attach_function :#{fct_name},:#{op.cname},[#{args.join(",")}],#{return_type}\n"
+                        str
                     end
                     str+"\n"
                 end

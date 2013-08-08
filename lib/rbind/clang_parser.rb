@@ -137,7 +137,7 @@ module Rbind
             access = :public
             last_obj = nil
             cursor.visit_children(false) do |cu,cu_parent|
-                 #  puts "----->#{cu.kind} #{cu.spelling} #{cu.type.kind} #{cu.specialized_template.kind}"
+                # puts "----->#{cu.kind} #{cu.spelling} #{cu.type.kind} #{cu.specialized_template.kind}"
                 last_obj = case cu.kind
                            when :namespace
                                process_namespace(cu,parent)
@@ -172,7 +172,6 @@ module Rbind
                                #   end
                            when :x_access_specifier
                                access = normalize_accessor(cu.cxx_access_specifier)
-                               last_obj
                            when :x_base_specifier
                                local_access = normalize_accessor(cu.cxx_access_specifier)
                                p = parent.type(RBase.normalize(cu.spelling),false)

@@ -88,7 +88,7 @@ module Rbind
         # parses other rbind packages
         def parse_extern
             # extern package are always paresed with the default parser 
-            local_parser = DefaultParser.new
+            local_parser = DefaultParser.new(parser)
             paths = Rbind.rbind_pkg_paths(@pkg_config)
             paths.each do |pkg|
                 config = YAML.load(File.open(File.join(pkg,"config.rbind")).read)
@@ -103,8 +103,6 @@ module Rbind
                 ::Rbind.log.info "parsing extern gem file #{path}"
                 local_parser.parse(File.open(path).read,config.ruby_module_name)
             end
-            # embed the parsed data into the actual parser
-            parser.use_namespace(local_parser)
             self
         end
 

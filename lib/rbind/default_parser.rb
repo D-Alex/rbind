@@ -155,6 +155,7 @@ module Rbind
                         t2
                     end
                 else
+                    t.name = t.name.gsub(">>","> >")
                     add_type(t)
                     t
                 end

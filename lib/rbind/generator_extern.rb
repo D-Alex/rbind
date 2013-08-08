@@ -8,7 +8,7 @@ module Rbind
         attr_accessor :ruby_module_name
         attr_accessor :file_prefix
         def self.normalize_type_name(name)
-            name.gsub('::','.')
+            name.gsub('::','.').gsub(" ","")
         end
 
         def initialize(root)
