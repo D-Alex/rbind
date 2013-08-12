@@ -192,5 +192,14 @@ module Rbind
         def binding
             Kernel.binding
         end
+
+        # specialize
+        def specialize_ruby(&block)
+            if block
+                @specialize_ruby = block
+            elsif @specialize_ruby
+                @specialize_ruby.call
+            end
+        end
     end
 end

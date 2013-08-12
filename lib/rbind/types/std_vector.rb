@@ -14,6 +14,7 @@ module Rbind
             para <<  RParameter.new("val",vector_type).default_value(vector_type.full_name+"()").to_const
             klass.add_operation ROperation.new("resize",type("void"),para)
             klass.add_operation ROperation.new("size",type("size_t"))
+            klass.add_operation ROperation.new("clear",type("void"))
             klass.add_operation ROperation.new("capacity",type("size_t"))
             klass.add_operation ROperation.new("empty",type("bool"))
             klass.add_operation ROperation.new("reserve",type("void"),RParameter.new("size",type("size_t")))
@@ -25,34 +26,53 @@ module Rbind
             klass.add_operation ROperation.new("push_back",type("void"),RParameter.new("other",vector_type).to_const)
             klass.add_operation ROperation.new("pop_back",type("void"))
             klass.add_operation ROperation.new("swap",type("void"),RParameter.new("other",klass))
+            # add ruby code to the front of the method
+            klass.operation("operator[]").specialize_ruby do
+                "validate_index(size)"
+            end
+            klass.operation("at").specialize_ruby do
+                "validate_index(size)"
+            end
+
+            specialize_ruby do
+    %Q$     def self.new(type,*args)
+            klass,elements = if type.class == Class
+                                [type.name,[]]
+                            else
+                                e = Array(type) + args.flatten
+                                args = []
+                                [type.class.name,e]
+                            end
+            #remove module name
+            klass = klass.split("::")
+            klass.shift if klass.size > 1
+            klass = klass.join("_")
+            raise ArgumentError,"no std::vector defined for \#{type}" unless self.const_defined?(klass)
+            v = self.const_get(klass).new(*args)
+            elements.each do |e|
+                v << e
+            end
+            v
+            end$
+            end
+
             klass
         end
 
-        def specialize_ruby
-%Q$     def self.new(type,*args)
-        klass,elements = if type.class == Class
-                            [type.name,[]]
-                        else
-                            args << type
-                            e = args
-                            args = []
-                            [type.class.name,e]
-                        end
-        #remove module name
-        klass = klass.split("::")
-        klass.shift if klass.size > 1
-        klass = klass.join("_")
-        raise ArgumentError,"no std::vector defined for \#{type}" unless self.const_defined?(klass)
-        v = self.const_get(klass).new(*args)
-        elements.each do |e|
-            v << e
-        end
-        v
-    end$
-        end
-
+        # called from RTemplate when ruby_specialize is called for the instance
         def specialize_ruby_specialization(klass)
             %Q$ include Enumerable
+            alias get_element []
+            def [](idx)
+                validate_index(idx)
+                get_element(idx)
+            end
+
+            def validate_index(idx)
+                if idx < 0 || idx >= size
+                    raise RangeError,"\#{idx} is out of range [0..\#{size-1}]"
+                end
+            end
             def each(&block)
                 if block
                      s = size

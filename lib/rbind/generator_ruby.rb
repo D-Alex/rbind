@@ -308,11 +308,7 @@ module Rbind
             end
 
             def add_specializing(root = @root)
-                if @root.respond_to?(:specialize_ruby)
-                    root.specialize_ruby
-                else
-                    ""
-                end
+                root.specialize_ruby
             end
 
             def result
@@ -388,6 +384,11 @@ module Rbind
                     GeneratorRuby.normalize_method_name(__getobj__.cname)
                 end
 
+                def add_specialize_ruby
+                    str = specialize_ruby
+                    "\t#{str}\n" if str
+                end
+
                 def binding
                     Kernel.binding
                 end
@@ -421,7 +422,7 @@ module Rbind
             def initialize(name, root,compact_namespace = false)
                 @type_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rtype.rb")).read,nil,"-")
                 @namespace_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rnamespace.rb")).read,nil,"-")
-                @static_method_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rstatic_method.rb")).read)
+                @static_method_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rstatic_method.rb")).read,nil,"-")
                 @method_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rmethod.rb")).read,nil,'-')
                 @overloaded_method_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","roverloaded_method.rb")).read,nil,"-")
                 @overloaded_static_method_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","roverloaded_static_method.rb")).read,nil,"-")
@@ -443,11 +444,7 @@ module Rbind
             end
 
             def add_specializing(root = @root)
-                str = if @root.respond_to?(:specialize_ruby)
-                          root.specialize_ruby
-                      else
-                          ""
-                      end
+                str = root.specialize_ruby.to_s
                 root.each_type(false) do |t|
                     next if t.basic_type? && !t.is_a?(RNamespace)
                     str += add_specialize(t) if name == GeneratorRuby.normalize_type_name(t.full_name)

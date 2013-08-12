@@ -98,10 +98,6 @@ class <%= name %>
         <%= add_to_s %>
     end
 
-    # @!group Sepcializing
-<%= add_specializing %>
-    # @!endgroup
-
     # @!group Constants
 <%= add_consts %>
     # @!endgroup
@@ -109,7 +105,13 @@ class <%= name %>
     # methods
 <%= add_methods %>
 
+    # @!group Specializing
+<%= add_specializing %>
+    # @!endgroup
+
+
     # types
 <%= add_types %>
+
 end
 

@@ -9,7 +9,7 @@ module Rbind
         attr_accessor :index            # index if overloaded
         attr_accessor :static
 
-        def initialize(name,return_type,*args)
+        def initialize(name,return_type=nil,*args)
             super(name)
             @return_type = return_type
             @parameters = args.flatten

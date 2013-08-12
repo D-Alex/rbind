@@ -6,6 +6,7 @@
                 targs[i] = @@<%=cname%>_defaults<%=index%>[i]
             end
             begin
+    <%= add_specialize_ruby -%>
                 <%- if !return_type || return_type.basic_type? || operator? -%>
                     <%- if constructor? || !instance_method? -%>
                 return Rbind::<%= cname %>(*targs)

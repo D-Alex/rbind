@@ -22,9 +22,8 @@ module Rbind
             add_operation ROperation.new("clear",void)
             add_operation ROperation.new("compare",int,RParameter.new("other",self).to_const)
             add_operation ROperation.new("swap",void,RParameter.new("other",self))
-        end
 
-        def specialize_ruby
+            specialize_ruby do
 %Q$         def self.to_native(obj,context)
                 if obj.is_a? ::String
                     str = obj.to_str
@@ -36,6 +35,7 @@ module Rbind
             def to_s
                 c_str
             end$
+            end
         end
     end
 end

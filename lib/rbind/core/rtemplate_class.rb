@@ -42,7 +42,7 @@ module Rbind
         end
 
         # hook for generating additional ruby code going to be embedded into the
-        # class definitition
+        # class definition
         def specialize_ruby_specialization(klass)
         end
     end
