@@ -1,5 +1,5 @@
-# @api private
-# object wrapping <%= full_name %>
+# @private
+# @note object wrapping <%= full_name %>
 class <%= name %>Struct < FFI::Struct
     layout :version,:uchar,
            :size,:size_t,
@@ -14,11 +14,12 @@ class <%= name %>Struct < FFI::Struct
     end
 end
 
+<%= add_doc -%>
 class <%= name %>
     extend FFI::DataConverter
     native_type FFI::Type::POINTER
 
-    # @api private
+    # @private
     #
     # Returns the *Struct type that Rbind uses to store additional information
     # about the memory used by this object
@@ -28,6 +29,7 @@ class <%= name %>
         <%= name %>Struct
     end
 
+<%= add_constructor_doc -%>
     def self.new(*args)
         if args.first.is_a?(FFI::Pointer) || args.first.is_a?(<%= name %>Struct)
             raise ArgumentError, "too many arguments for creating #{self.name} from Pointer" unless args.size == 1
@@ -37,7 +39,7 @@ class <%= name %>
         raise ArgumentError, "no constructor for #{self}(#{args.inspect})"
     end
 
-    # @api private
+    # @private
     def self.rbind_to_native(obj,context)
         if obj.is_a? <%= name %>
             obj.__obj_ptr__
@@ -46,14 +48,14 @@ class <%= name %>
         end
     end
 
-    # @api private
+    # @private
     def self.rbind_from_native(ptr,context)
         <%= name %>.new(ptr)
     end
 
-    # @api private
+    # @private
     #
-    # Performs the convertion a Ruby representation into the FFI representation
+    # Performs the conversion a Ruby representation into the FFI representation
     #
     # @param [Object] obj the Ruby representation
     # @param context necessary but undocumented argument from FFI
@@ -62,9 +64,9 @@ class <%= name %>
         rbind_to_native(obj,context)
     end
 
-    # @api private
+    # @private
     # 
-    # Performs the convertion from FFI into the Ruby representation that
+    # Performs the conversion from FFI into the Ruby representation that
     # corresponds to this type
     #
     # @param [FFI::Pointer,FFI::AutoPointer] ptr
@@ -74,10 +76,10 @@ class <%= name %>
         rbind_from_native(ptr,context)
     end
 
-    # @api private
+    # @private
     attr_reader :__obj_ptr__
 
-    # @api private
+    # @private
     def initialize(ptr)
         @__obj_ptr__ = if ptr.is_a? <%= name %>Struct
                            ptr
@@ -86,7 +88,7 @@ class <%= name %>
                        end
     end
 
-    # @api private
+    # @private
     # returns true if the underlying pointer is owner of
     # the real object
     def __owner__?
@@ -108,7 +110,6 @@ class <%= name %>
     # @!group Specializing
 <%= add_specializing %>
     # @!endgroup
-
 
     # types
 <%= add_types %>

@@ -1,6 +1,7 @@
 require 'fileutils'
 require 'delegate'
 require 'erb'
+require 'open-uri'
 
 module Rbind
     class GeneratorRuby
@@ -15,6 +16,16 @@ module Rbind
 
         def self.keyword?(name)
             %w{__FILE__ __LINE__ alias and begin BEGIN break case class def defined? do else elsif end END ensure false for if in module next nil not or redo rescue retry return self super then true undef unless until when while yield}.include? name
+        end
+
+        def self.normalize_doc(str)
+            return nil if !str || str.empty?
+            s = str
+            str = str.gsub(/\$\$(.*)\$\$/m) do
+                "![equation](http://latex.codecogs.com/gif.latex?#{URI::encode($1.to_s)})"
+            end
+            str = str.gsub(/^ *#?/,"# ")
+            "#{str.chomp}\n"
         end
 
         def self.on_normalize_type_name(&block)
@@ -137,24 +148,10 @@ module Rbind
             end
         end
 
-        # normalize c method to meet ruby conventions
-        # see unit tests
-        def self.normalize_method_name(orig_name)
-            #remove cprefix and replaced _X with #X
-            name = orig_name.to_s.gsub(/\A#{RBase.cprefix}/, "") .gsub(/_((?<!\A)\p{Lu})/u, '#\1')
-            #replaced X with _x
-            name = name.gsub(/(?<!\A)[\p{Lu}\d]/u, '_\0').downcase
-            #replaced _x_ with #x#
-            name = name.to_s.gsub(/[_#]([a-zA-Z\d])[_#]/u, '#\1#')
-            #replaced _x$ with #x
-            name = name.to_s.gsub(/[_#]([a-zA-Z\d])$/u, '#\1')
-            #replaced ## with _
-            name = name.gsub(/##/, '_')
-            #replace #xx with _xx
-            name = name.gsub(/#([a-zA-Z\d]{2})/, '_\1')
-            #remove all remaining #
-            name = name.gsub(/#/, '')
-            #replace operatorX with the correct ruby operator
+        def self.normalize_alias_method_name(orig_name)
+            name = orig_name
+            #replace operatorX with the correct ruby operator when 
+            #there are overloaded operators
             name = if name =~/^operator(.*)/
                         n = $1
                         if n =~ /\(\)/
@@ -179,6 +176,26 @@ module Rbind
                    else
                       name
                    end
+        end
+
+        # normalize c method to meet ruby conventions
+        # see unit tests
+        def self.normalize_method_name(orig_name)
+            #remove cprefix and replaced _X with #X
+            name = orig_name.to_s.gsub(/\A#{RBase.cprefix}/, "") .gsub(/_((?<!\A)\p{Lu})/u, '#\1')
+            #replaced X with _x
+            name = name.gsub(/(?<!\A)[\p{Lu}\d]/u, '_\0').downcase
+            #replaced _x_ with #x#
+            name = name.to_s.gsub(/[_#]([a-zA-Z\d])[_#]/u, '#\1#')
+            #replaced _x$ with #x
+            name = name.to_s.gsub(/[_#]([a-zA-Z\d])$/u, '#\1')
+            #replaced ## with _
+            name = name.gsub(/##/, '_')
+            #replace #xx with _xx
+            name = name.gsub(/#([a-zA-Z\d]{2})/, '_\1')
+            #remove all remaining #
+            name = name.gsub(/#/, '')
+            name = normalize_alias_method_name(name)
             raise "generated empty name for #{orig_name}" if name.empty?
             name
         end
@@ -307,6 +324,10 @@ module Rbind
                 GeneratorRuby.normalize_type_name(@root.cname)
             end
 
+            def add_doc
+                str = GeneratorRuby::normalize_doc(@root.doc)
+            end
+
             def add_specializing(root = @root)
                 root.specialize_ruby
             end
@@ -384,9 +405,47 @@ module Rbind
                     GeneratorRuby.normalize_method_name(__getobj__.cname)
                 end
 
+                def add_alias
+                    name = if auto_alias
+                               __getobj__.name
+                           else
+                               __getobj__.alias || __getobj__.name
+                           end
+                    name = GeneratorRuby::normalize_alias_method_name(name)
+                    if name == self.name || !cplusplus_alias?
+                        nil
+                    elsif static?
+                        "    class << self; alias :#{name} :#{self.name}; end\n"
+                    else
+                        "    alias :#{name} :#{self.name}\n"
+                    end
+                end
+
                 def add_specialize_ruby
                     str = specialize_ruby
-                    "\t#{str}\n" if str
+                    "    #{str}\n" if str
+                end
+
+                def generate_param_doc
+                    paras = parameters.map do |p|
+                        n = GeneratorRuby.normalize_arg_name p.name
+                        t = GeneratorRuby.normalize_type_name(p.type.full_name)
+                        "# @param [#{t}] #{n} #{p.doc}"
+                    end
+                    if return_type
+                        t = GeneratorRuby.normalize_type_name(return_type.full_name)
+                        paras << "# @return [#{t}]"
+                    end
+                    paras.join("\n")+"\n"
+                end
+
+                def add_doc
+                    str = GeneratorRuby::normalize_doc(doc)
+                    str = if !parameters.empty? || return_type
+                              str += "#\n" if str
+                              "#{str}#{generate_param_doc}"
+                          end
+                    str.gsub(/^/,"    ") if str
                 end
 
                 def binding
@@ -412,6 +471,28 @@ module Rbind
                              end
                         @overload_wrapper.result(op.binding)
                     end.join("\n")
+                end
+
+                def add_alias
+                    name = GeneratorRuby::normalize_alias_method_name(@root.first.alias || @root.first.name)
+                    if name == self.name || !@root.first.cplusplus_alias?
+                        nil
+                    elsif static?
+                        "    class << self; alias :#{name} :#{self.name}; end\n"
+                    else
+                        "    alias #{name} #{self.name}\n"
+                    end
+                end
+
+                def add_doc
+                    str = @root.map do |op|
+                        s = op.add_doc
+                        s ||= ""
+                        s = s.gsub(/( *#)/) do
+                            "#{$1}  "
+                        end
+                        "    # @overload #{op.name}(#{op.wrap_parameters_signature})\n#{s}"
+                    end.join("    #\n")
                 end
 
                 def binding
@@ -460,6 +541,21 @@ module Rbind
                     ch = OperationHelper.new(c)
                     @overloaded_method_call_wrapper.result(ch.binding)
                 end.join("\n")
+            end
+
+            def add_constructor_doc
+                ops = Array(@root.operation(@root.name,false))
+                ops = ops.map do |c|
+                    next if c.ignore?
+                    OperationHelper.new(c)
+                end.compact
+                if ops.empty?
+                    nil
+                elsif ops.size == 1
+                    ops.first.add_doc
+                else
+                    OverloadedOperationHelper.new(ops).add_doc
+                end
             end
 
             def add_consts(root=@root)
@@ -545,6 +641,10 @@ module Rbind
 
             def full_name
                 @root.full_name
+            end
+
+            def add_doc
+                GeneratorRuby::normalize_doc(@root.doc)
             end
 
             def result

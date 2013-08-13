@@ -8,11 +8,19 @@ module Rbind
         attr_accessor :ambiguous_name
         attr_accessor :index            # index if overloaded
         attr_accessor :static
+        attr_accessor :cplusplus_alias
 
         def initialize(name,return_type=nil,*args)
             super(name)
             @return_type = return_type
             @parameters = args.flatten
+            @cplusplus_alias = true
+        end
+
+        # indicates if an alias method shall be added
+        # having the same name style like the c++ method
+        def cplusplus_alias?
+            !!@cplusplus_alias
         end
 
         def add_parameter(para,&block)
@@ -71,7 +79,7 @@ module Rbind
         end
 
         def static?
-            !!@static
+            !instance_method?
         end
 
         def to_static
@@ -83,7 +91,7 @@ module Rbind
         def generate_signatures
             s = "#{return_type.signature} " unless constructor?
             s = "#{s}#{full_name}(#{parameters.map(&:signature).join(", ")})"
-            
+
             cs = if constructor?
                     owner.to_ptr.csignature if owner
                 else
@@ -105,7 +113,7 @@ module Rbind
         end
 
         def instance_method?
-            owner.is_a?(RClass) && !constructor? && !static?
+            owner.is_a?(RClass) && !constructor? && !@static
         end
 
         def cparameters
@@ -125,6 +133,11 @@ module Rbind
                 para.owner = self
             end
             self
+        end
+
+        # generates documentation based on the method signature
+        def generate_doc
+
         end
 
         def constructor?

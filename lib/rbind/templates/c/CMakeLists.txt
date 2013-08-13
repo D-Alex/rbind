@@ -18,13 +18,13 @@ TARGET_LINK_LIBRARIES(<%= library_name %> <%= libs %> ${GEM_LIBRARIES})
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/rbind.pc.in ${CMAKE_CURRENT_BINARY_DIR}/<%= library_name %>.pc @ONLY)
 
-set(ROOT_FOLDER ${CMAKE_CURRENT_SOURCE_DIR}/..)
+set(ROOT_FOLDER ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 if(GEM_INSTALL)
     # local install
-    install(TARGETS <%= library_name %> LIBRARY DESTINATION ${ROOT_FOLDER}/lib/lib)
-    install(FILES types.h operations.h conversions.hpp DESTINATION ${ROOT_FOLDER}/lib/include)
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/extern.rbind DESTINATION ${ROOT_FOLDER}/lib/include)
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/config.rbind DESTINATION ${ROOT_FOLDER}/lib/include)
+    install(TARGETS <%= library_name %> LIBRARY DESTINATION ${ROOT_FOLDER}/lib)
+    install(FILES types.h operations.h conversions.hpp DESTINATION ${ROOT_FOLDER}/include)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/extern.rbind DESTINATION ${ROOT_FOLDER}/include)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/config.rbind DESTINATION ${ROOT_FOLDER}/include)
 else()
     # global install
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/<%= library_name %>.pc DESTINATION lib/pkgconfig)

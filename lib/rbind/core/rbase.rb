@@ -11,6 +11,7 @@ module Rbind
         attr_accessor :csignature
         attr_accessor :ignore
         attr_accessor :extern_package_name
+        attr_accessor :doc
 
         class << self
             attr_accessor :cprefix
@@ -191,6 +192,16 @@ module Rbind
 
         def binding
             Kernel.binding
+        end
+
+        def doc(&block)
+            if block
+                @doc = block
+            elsif @doc.is_a? Proc
+                @doc.call
+            else
+                @doc
+            end
         end
 
         # specialize

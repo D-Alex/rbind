@@ -1,4 +1,5 @@
-    # wrapper for <%= signature %>
+<%= add_doc -%>
+    # @note wrapper for <%= signature %>
     def <%=name%>(<%= wrap_parameters_signature %>)
 <%= add_specialize_ruby -%>
     <%- if return_type.basic_type? || operator? -%>
@@ -12,4 +13,5 @@
         result
     <%- end -%>
     end
+<%= add_alias -%>
 
