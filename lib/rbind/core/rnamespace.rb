@@ -257,8 +257,13 @@ module Rbind
 
         def add_const(const)
             const.const!
-            if const(const.full_name,false,false)
-                raise ArgumentError,"#A const with the name #{const.full_name} already exists"
+            if(c = const(const.full_name,false,false))
+                if c.type.full_name == const.type.full_name && c.default_value == const.default_value
+                    ::Rbind.log.warn "A const with the name #{const.full_name} already exists"
+                    return c
+                else
+                    raise ArgumentError,"#A different const with the name #{const.full_name} already exists: #{const} != #{c}"
+                end
             end
             if const.namespace? && self.full_name != const.namespace
                 t=type(const.namespace,false)

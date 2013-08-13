@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
     s.name              = 'rbind'
-    s.version           = '0.0.14'
-    s.date              = '2013-09-03'
+    s.version           = '0.0.16'
+    s.date              = '2013-08-13'
     s.platform          = Gem::Platform::RUBY
     s.authors           = ['Alexander Duda']
     s.email             = ['Alexander.Duda@dfki.de']
@@ -11,7 +11,7 @@ Gem::Specification.new do |s|
                           'but is not tight to this library. It allows to import already wrapped types '\
                           'from other gems/libraries using rbind to share the same types across '\
                           'multiple gems/libraries. For now rbind uses a copy of the OpenCV python hdr_parser '\
-                          'to parse c/c++ header files and looks for certain defines. '\
+                          'to parse c/c++ header files.'\
                           'This gem is still under heavy development and the API might change in the future.'
     s.files             = `git ls-files`.split("\n")
     s.require_path      = 'lib'
