@@ -72,8 +72,3 @@ describe Rbind::GeneratorRuby do
         end
     end
 end
-            #assert(@service.names.include?("Local/dummy"))
-            #assert_equal(@task,@service.get("dummy"))
-            #assert_raises(Orocos::NotFound) do
-            #    @service.get("foo")
-            #end

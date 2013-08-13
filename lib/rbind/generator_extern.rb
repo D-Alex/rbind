@@ -8,7 +8,7 @@ module Rbind
         attr_accessor :ruby_module_name
         attr_accessor :file_prefix
         def self.normalize_type_name(name)
-            name.gsub('::','.')
+            name.gsub('::','.').gsub(" ","")
         end
 
         def initialize(root)
@@ -26,8 +26,6 @@ module Rbind
             @root.each_type do |t|
                 if t.is_a? RClass
                     file_extern.write "class #{GeneratorExtern.normalize_type_name(t.full_name)} /Extern\n"
-                elsif t.is_a? RStruct
-                    file_extern.write "struct #{GeneratorExtern.normalize_type_name(t.full_name)} /Extern\n"
                 end
             end
 

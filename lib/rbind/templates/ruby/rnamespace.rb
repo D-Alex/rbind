@@ -1,4 +1,5 @@
-# wrapper for <%= full_name %>
+<%= add_doc -%>
+# @note wrapper for <%= full_name %>
 module <%= name %>
     # @!group Constants
 <%= add_consts%>

@@ -6,11 +6,12 @@ module Rbind
         attr_accessor :auto_alias # set to true if rbind is aliasing the object
         attr_accessor :namespace
         attr_accessor :owner
-        attr_accessor :flags
         attr_accessor :version
         attr_accessor :signature
         attr_accessor :csignature
         attr_accessor :ignore
+        attr_accessor :extern_package_name
+        attr_accessor :doc
 
         class << self
             attr_accessor :cprefix
@@ -18,23 +19,26 @@ module Rbind
             def to_cname(name)
                 name = normalize(name)
                 cn = "#{cprefix}#{name.gsub("::","_")}"
-                cn = cn.gsub("()","_fct")
-                cn = cn.gsub("<=","_smaller_equal")
-                cn = cn.gsub(">=","_greater_equal")
-                cn = cn.gsub("!=","_unequal")
-                cn = cn.gsub("==","_equal")
-                cn = cn.gsub("&=","_and_set")
-                cn = cn.gsub("+=","_add")
-                cn = cn.gsub("-=","_sub")
-                cn = cn.gsub("+","_plus")
-                cn = cn.gsub("-","_minus")
-                cn = cn.gsub("*","_mult")
-                cn = cn.gsub("/","_div")
-                cn = cn.gsub("!","_not")
-                cn = cn.gsub("&","_and")
-                cn = cn.gsub("<","_smaller")
-                cn = cn.gsub(">","_greater")
-                cn.gsub("[]","_array")
+                if cn =~ /operator/
+                    cn = cn.gsub("operator()","operator_fct")
+                    cn = cn.gsub("operator!=","operator_unequal")
+                    cn = cn.gsub("operator==","operator_equal")
+                    cn = cn.gsub("operator&=","operator_and_set")
+                    cn = cn.gsub("operator+=","operator_add")
+                    cn = cn.gsub("operator-=","operator_sub")
+                    cn = cn.gsub("operator+","operator_plus")
+                    cn = cn.gsub("operator-","operator_minus")
+                    cn = cn.gsub("operator*","operator_mult")
+                    cn = cn.gsub("operator/","operator_div")
+                    cn = cn.gsub("operator!","operator_not")
+                    cn = cn.gsub("operator&","operator_and")
+                    cn = cn.gsub("operator[]","operator_array")
+                end
+                cn = cn.gsub("*","_ptr")
+                cn = cn.gsub("&","_ref")
+                cn = cn.gsub("<","_")
+                cn = cn.gsub(">","")
+                cn = cn.gsub(",","__")
             end
 
             def normalize(name)
@@ -45,37 +49,36 @@ module Rbind
                 name.gsub(".","::").gsub(" ","")
             end
 
-            def basename(name)
+            def split_name(name)
                 name = normalize(name)
-                if !!(name =~/.*::(.*)$/)
-                    $1
+                # check for template
+                if(name =~/([\w:]*)(<.*)$/)
+                    result = split_name($1)
+                    [result[0],result[1]+$2]
+                elsif(name =~/(.*)::(.*)$/)
+                    [$1,$2]
                 else
-                    name
+                    [nil,name]
                 end
             end
 
             def namespace(name)
-                name = normalize(name)
-                if !!(name =~/(.*)::.*$/)
-                    $1
-                else
-                    nil
-                end
+                split_name(name)[0]
+            end
+
+            def basename(name)
+                split_name(name)[1]
             end
         end
         self.cprefix = "rbind_"
 
         def pretty_print(pp)
-            pp.text "#{signature}#{" Flags: #{flags.join(", ")}" unless flags.empty?}"
+            pp.text "#{signature}"
         end
 
-        def initialize(name,*flags)
-            name = RBase::normalize(name)
-            raise ArgumentError, "no name" unless name && name.size > 0
-            @name = RBase::basename(name)
-            @namespace = RBase::namespace(name)
+        def initialize(name)
+            rename(name)
             @version = 1
-            self.flags = flags.flatten
         end
 
         def generate_signatures
@@ -84,6 +87,11 @@ module Rbind
 
         def ignore?
             !!@ignore
+        end
+
+        # returns true if this object is defined in another extern package
+        def extern?
+            extern_package_name && !extern_package_name.empty?
         end
 
         def signature(sig=nil)
@@ -122,41 +130,24 @@ module Rbind
             end
         end
 
-        def flags=(*flags)
-            flags.flatten!
-            validate_flags(flags)
-            @flags = flags
-        end
-
-        def add_flag(*flags)
-            @flags += flags
-            self
-        end
-
-        def valid_flags
-            []
-        end
-
-        def validate_flags(flags,valid_flags = self.valid_flags)
-            valid_flags.flatten!
-            flags.each do |flag|
-                if !valid_flags.include?(flag)
-                    raise "flag #{flag} is not supported for #{self.class.name}. Supported flags are #{valid_flags}"
-                end
-            end
-        end
-
         def owner=(obj)
-            if obj.respond_to?(:root?) && !obj.root?
-                @namespace = obj.full_name
-            else
-                @namespace = nil
-            end
+            raise ArgumentError,"Cannot at self as owner" if obj.object_id == self.object_id
             @owner = obj
+            @namespace = nil
         end
 
         def ignore?
             !!@ignore
+        end
+
+        def namespace
+            if @namespace
+                @namespace
+            elsif @owner.respond_to?(:root?) && !@owner.root?
+                @owner.full_name
+            else
+                nil
+            end
         end
 
         def namespace?
@@ -167,6 +158,10 @@ module Rbind
             map_to_namespace(name)
         end
 
+        def to_s
+            signature
+        end
+
         def map_to_namespace(name)
             if namespace
                 "#{namespace}::#{name}"
@@ -175,8 +170,47 @@ module Rbind
             end
         end
 
+        def rename(name)
+            old_name = self.name
+            name = RBase::normalize(name)
+            raise ArgumentError, "no name" unless name && name.size > 0
+            @name = RBase::basename(name)
+            @namespace = RBase::namespace(name)
+            if @owner
+                @owner.delete_type old_name
+                @owner.add_type(self)
+            end
+        end
+
+        def delete!
+            if @owner
+                @owner.delete_type self.name
+            else
+                raise "#{self} has no owner."
+            end
+        end
+
         def binding
             Kernel.binding
+        end
+
+        def doc(&block)
+            if block
+                @doc = block
+            elsif @doc.is_a? Proc
+                @doc.call
+            else
+                @doc
+            end
+        end
+
+        # specialize
+        def specialize_ruby(&block)
+            if block
+                @specialize_ruby = block
+            elsif @specialize_ruby
+                @specialize_ruby.call
+            end
         end
     end
 end

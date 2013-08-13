@@ -85,7 +85,7 @@ module Rbind
                @root.each_container do |type|
                    str2 = ""
                    type.each_const(false) do |c|
-                       str2 += "#{c.csignature};\n"
+                       str2 += "#{c.signature};\n"
                    end
                    if !str2.empty?
                         str += "\n\n//constants for #{type.full_name}\n"
@@ -169,7 +169,7 @@ module Rbind
                def wrap_parameters
                    cparameters.map do |arg|
                        next if arg.type.basic_type?
-                       "#{"const " if arg.read_only?}#{arg.type.full_name} *#{arg.name}_ = fromC(#{arg.name});\n\t"
+                       "#{arg.type.to_single_ptr.signature} #{arg.name}_ = fromC(#{arg.name});\n\t"
                    end.compact.join("")
                end
 

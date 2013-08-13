@@ -1,26 +1,58 @@
+require 'hooks'
 
 module Rbind
     class RNamespace< RDataType
+        include Hooks
+        define_hook :on_type_not_found
+        define_hook :on_type_look_up
+        define_hook :on_add_type
+        define_hook :on_add_operation
+        define_hook :on_add_const
+
         class << self
             attr_accessor :default_type_names
+            attr_accessor :default_type_alias
         end
-        self.default_type_names = [:int,:int8,:int32,:int64,:uint,:uint8,:uint32,:uint64,:int8_t,:int32_t,:int64_t,:uint8_t,:uint32_t,:uint64_t,:bool,:double,:float,:void,:char,:size_t]
+        # TODO move somewhere else
+        self.default_type_names = [:int,:int8,:int32,:int64,:uint,:uint8,:uint32,:uint64,
+                                   :int8_t,:int32_t,:int64_t,:uint8_t,:uint32_t,:uint64_t,
+                                   :bool,:double,:float,:void,:char,:size_t,:long,
+                                   :uchar, :char16, :char32, :ushort, :ulong, :ulong_long,
+                                   :uint128, :short, :long_long, :int128, :long_double,
+                                   :c_string,:constant_array]
+        self.default_type_alias= { :u_char => :uchar, :u_short => :ushort, :u_long => :ulong,
+                                   :u_long_long => :ulong_long,:u_int => :uint, :uint128 => :uint128,
+                                   :char_s => :char}
 
         attr_reader :operations
         attr_reader :operation_alias
         attr_reader :consts
         attr_reader :used_namespaces
-        attr_accessor :root
-        attr_accessor :types_alias
+        attr_reader :type_alias
+        attr_reader :root
 
-        def initialize(name,*flags)
+        def initialize(name=nil,root = nil)
             @consts = Hash.new
             @types = Hash.new
-            @types_alias = Hash.new
+            @type_alias = Hash.new
             @operations = Hash.new{|hash,key| hash[key] = Array.new}
             @operation_alias = Hash.new{|hash,key| hash[key] = Array.new}
-            @used_namespaces = Hash.new
-            super(name,*flags)
+            @used_namespaces = Array.new
+            name ||= begin
+                         @root = true
+                         "root"
+                     end
+            if root
+                #share varaibales accross root namesapces
+                raise "#{root} is not a root namespace" unless root.root?
+                @consts = root.instance_variable_get(:@consts)
+                @types = root.instance_variable_get(:@types)
+                @type_alias = root.instance_variable_get(:@type_alias)
+                @operations = root.instance_variable_get(:@operations)
+                @operation_alias =root.instance_variable_get(:@operation_alias)
+                @used_namespaces = root.instance_variable_get(:@used_namespaces)
+            end
+            super(name)
         end
 
         def root?
@@ -45,13 +77,23 @@ module Rbind
         end
 
         def use_namespace(namespace)
-            @used_namespaces[namespace.name] = namespace
+            # Check if there is another root embedded
+            # and add the corresponding namespace.
+            # This is needed to support multiple roots providing
+            # types to the same namespace
+            @used_namespaces.each do |ns|
+                next unless ns.root?
+                if (ns2 = ns.type(namespace.full_name,false))
+                    @used_namespaces << ns2 if ns.object_id != namespace.object_id
+                end
+            end
+            @used_namespaces << namespace
         end
 
         def each_type(childs=true,all=false,&block)
             if block_given?
                 types.each do |t|
-                    next if !all && (t.ignore? || t.extern?)
+                    next if !all && (t.ignore? || t.extern? || t.template?)
                     yield t
                     t.each_type(childs,all,&block) if childs && t.respond_to?(:each_type)
                 end
@@ -60,8 +102,8 @@ module Rbind
             end
         end
 
-        def each_container(all=false,&block)
-            each_type(true,all) do |t|
+        def each_container(childs=true,all=false,&block)
+            each_type(childs,all) do |t|
                 next unless t.container?
                 yield t
             end
@@ -81,7 +123,7 @@ module Rbind
                     end
                 end
             c ||= begin
-                      used_namespaces.values.each do |ns|
+                      used_namespaces.each do |ns|
                           c = ns.const(name,false,false)
                           break if c
                       end
@@ -91,6 +133,7 @@ module Rbind
                       owner.const(name,false)
                   end
             raise RuntimeError,"#{full_name} has no const called #{name}" if raise_ && !c
+            c
         end
 
         def each_const(childs=true,all=false,&block)
@@ -100,7 +143,7 @@ module Rbind
                     yield c
                 end
                 return unless childs
-                each_container(all) do |t|
+                each_container(false,all) do |t|
                     t.each_const(childs,all,&block)
                 end
             else
@@ -109,7 +152,7 @@ module Rbind
         end
 
         def extern?
-            return super() if self.is_a?(RStruct)
+            return super if self.is_a? RClass
 
             # check if self is container holding only
             # extern objects
@@ -122,7 +165,6 @@ module Rbind
             each_operation do |t|
                 return false
             end
-            true
         end
 
         def each_operation(all=false,&block)
@@ -162,9 +204,15 @@ module Rbind
             !!operation(name,false)
         end
 
-        def add_operation(op)
-            op.owner = self
+        def add_operation(op,&block)
+            if op.is_a? String
+                op = ROperation.new(op,void)
+                op.owner = self
+                instance_exec(op,&block) if block
+                return add_operation(op)
+            end
 
+            op.owner = self
             # make sure there is no name clash
             other = @operations[op.name].find do |o|
                 o.cname == op.cname
@@ -190,8 +238,9 @@ module Rbind
             op
         end
 
-        def add_namespace(namespace)
-            names = namespace.split("::")
+        # TODO rename to add_namespace_name
+        def add_namespace(namespace_name)
+            names = namespace_name.split("::")
             current_type = self
             while !names.empty?
                 name = names.shift
@@ -207,8 +256,14 @@ module Rbind
         end
 
         def add_const(const)
-            if const(const.full_name,false,false)
-                raise ArgumentError,"#A const with the name #{const.full_name} already exists"
+            const.const!
+            if(c = const(const.full_name,false,false))
+                if c.type.full_name == const.type.full_name && c.default_value == const.default_value
+                    ::Rbind.log.warn "A const with the name #{const.full_name} already exists"
+                    return c
+                else
+                    raise ArgumentError,"#A different const with the name #{const.full_name} already exists: #{const} != #{c}"
+                end
             end
             if const.namespace? && self.full_name != const.namespace
                 t=type(const.namespace,false)
@@ -223,9 +278,13 @@ module Rbind
 
         def add_default_types
             add_simple_types RNamespace.default_type_names
-            add_type ::Rbind::RDataType.new("uchar").cname("unsigned char")
-            add_type ::Rbind::RDataType.new("c_string").cname("char *")
-            add_type ::Rbind::RDataType.new("const_c_string").cname("const char *")
+            type("uchar").cname("unsigned char")
+            type("c_string").cname("char *")
+            RNamespace.default_type_alias.each_pair do |key,val|
+                next if @type_alias.has_key?(key)
+                @type_alias[key.to_s] = type(val)
+            end
+            self
         end
 
         def add_simple_type(name)
@@ -239,9 +298,8 @@ module Rbind
             end
         end
 
-        def add_type(type)
-            raise ArgumentError, "wrong parmeter type #{type}" unless type.is_a? RDataType
-            if type(type.full_name,false,false)
+        def add_type(type,check_exist = true)
+            if check_exist && type(type.full_name,false,false)
                 raise ArgumentError,"A type with the name #{type.full_name} already exists"
             end
             # if self is not the right namespace
@@ -252,28 +310,31 @@ module Rbind
             else
                 type.owner = self
                 if type.alias
-                    if type(type.alias,false,false)
+                    if check_exist && type(type.alias,false,false)
                         raise ArgumentError,"A type with the name alias #{type.alias} already exists"
                     end
-                    @types_alias[type.alias] = type
+                    raise ArgumentError,"A type alias with the name #{t.alias} already exists" if(t = @type_alias[type.alias])
+                    @type_alias[type.alias] = type.to_raw
                 end
-                @types[type.name] = type
+                raise ArgumentError,"A type with the name #{t.full_name} already exists" if(t = @types[type.name])
+                @types[type.name] = type.to_raw
             end
             type
         end
 
         def type(name,raise_ = true,search_owner = true)
-            ptr = name.include?("*")
-            ref = name.include?("&")
-            if(ptr && ref)
-                raise ArgumentError,"given type is a reference and pointer at the same time: #{name}"
-            end
-            name = name.gsub("*","").gsub("&","")
-            name = name.chomp(" ")
+            name = name.to_s
+            constant = if name =~ /const /
+                           true
+                       else
+                           false
+                       end
+            name = name.gsub("unsigned ","u").gsub("const ","").gsub(" ","").gsub(">>","> >")
+
             t = if @types.has_key?(name)
                     @types[name]
-                elsif @types_alias.has_key?(name)
-                    @types_alias[name]
+                elsif @type_alias.has_key?(name)
+                    @type_alias[name]
                 else
                     if !!(ns = RBase.namespace(name))
                         ns = ns.split("::")
@@ -283,7 +344,7 @@ module Rbind
                     end
                 end
             t ||= begin
-                      used_namespaces.values.each do |ns|
+                      used_namespaces.each do |ns|
                           t = ns.type(name,false,false)
                           break if t
                       end
@@ -292,25 +353,84 @@ module Rbind
             t ||= if search_owner && owner
                       owner.type(name,false)
                   end
-            raise RuntimeError,"#{full_name} has no type called #{name}" if raise_ && !t
-            if t && (ptr || ref)
-                t = t.clone
-                t.ref = ref
-                t.ptr = ptr
+            # check if type is a pointer and pointee is registered
+            t ||= begin
+                      ptr_level = $1.to_s.size if name  =~ /(\**)$/
+                      name2 = name.gsub("*","")
+                      ref_level = $1.to_s.size if name2  =~ /(&*)$/
+                      name2 = name2.gsub("&","")
+                      if ptr_level > 0 || ref_level > 0
+                          t = type(name2,raise_,search_owner)
+                          if t
+                              1.upto(ptr_level) do
+                                  t = t.to_ptr
+                              end
+                              1.upto(ref_level) do
+                                  t = t.to_ref
+                              end
+                             # t.owner.add_type(t,false)
+                              t
+                          end
+                      end
+                  end
+
+            # check if type is a template and a template is registered
+            # under the given name
+            t ||=  if search_owner && name =~ /([:\w]*)<(.*)>$/
+                      t = type($1,false) if $1 && !$1.empty?
+                      t2 = type($2,false) if $2 && !$2.empty?
+                      if t && t2
+                          name = "#{t.name}<#{t2.full_name}>"
+                          t3 ||= t.owner.type(name,false,false)
+                          t3 ||= begin
+                                     if !t.template?
+                                         ::Rbind.log.error "try to spezialize a class #{t.full_name} --> #{name}"
+                                         nil
+                                     else
+                                         t3 = t.do_specialize(name,t2)
+                                         if !t3
+                                             ::Rbind.log.error "Failed to specialize template #{t.full_name} --> #{name}"
+                                             nil
+                                         else
+                                             t.owner.add_type(t3,false)
+                                             ::Rbind.log.info "spezialize template #{t.full_name} --> #{t3.full_name}"
+                                             t3
+                                         end
+                                     end
+                                 end
+                      end
+                    end
+
+            if !t && raise_
+                if self.class.callbacks_for_hook(:on_type_not_found)
+                    results = self.run_hook(:on_type_not_found,self,name)
+                    t = results.find do |t|
+                        t.respond_to?(:type)
+                    end
+                end
+                raise RuntimeError,"#{full_name} has no type called #{name}" if !t
             end
-            t
+            if constant
+                t.to_const
+            else
+                t
+            end
         end
 
         def pretty_print_name
-            "namespace #{full_name}#{" Flags: #{flags.join(", ")}" unless flags.empty?}"
+            "namespace #{full_name}"
         end
 
         def root?
             !!root
         end
 
+        def empty?
+            consts.empty? && types.empty? && operations.empty?
+        end
+
         def pretty_print(pp)
-            pp.text pretty_print_name
+            pp.text pretty_print_name unless root?
 
             unless consts.empty?
                 pp.nest(2) do
@@ -329,7 +449,20 @@ module Rbind
                     pp.breakable
                     pp.text "Types:"
                     pp.nest(2) do
+                        simple = []
+                        other = []
                         types.each do |t|
+                            if t.basic_type? && !t.container?
+                                simple << t.name
+                            else 
+                                other << t
+                            end
+                        end
+                        if !simple.empty?
+                            pp.breakable
+                            pp.text(simple.join(", "))
+                        end
+                        other.each do |t|
                             pp.breakable
                             pp.pp(t)
                         end
@@ -354,12 +487,16 @@ module Rbind
         end
 
         def method_missing(m,*args)
-            t = type(m.to_s,false,false)
-            return t if t
+            if m != :to_ary && args.empty?
+                t = type(m.to_s,false,false)
+                return t if t
 
-            op = operation(m.to_s,false)
-            return op if op
+                op = operation(m.to_s,false)
+                return op if op
 
+                c = const(m.to_s,false)
+                return c if c
+            end
             super
         end
     end

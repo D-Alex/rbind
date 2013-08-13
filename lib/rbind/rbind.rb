@@ -2,9 +2,9 @@ require 'open3'
 
 module Rbind
     class Rbind
-        attr_accessor :parser
-        attr_accessor :generator_c
-        attr_accessor :generator_ruby
+        attr_reader :parser
+        attr_reader :generator_c
+        attr_reader :generator_ruby
         attr_accessor :includes
         attr_accessor :name
         attr_accessor :pkg_config
@@ -46,12 +46,12 @@ module Rbind
             end
         end
 
-        def initialize(name)
+        def initialize(name,parser = DefaultParser.new)
             @name = name
             @includes = []
             @pkg_config = []
             @gems = []
-            @parser = DefaultParser.new
+            @parser = parser
             lib_name = "rbind_#{name.downcase}"
             @generator_c = GeneratorC.new(@parser,lib_name)
             @generator_ruby = GeneratorRuby.new(@parser,name,lib_name)
@@ -87,20 +87,23 @@ module Rbind
 
         # parses other rbind packages
         def parse_extern
+            # extern package are always paresed with the default parser 
+            local_parser = DefaultParser.new(parser)
             paths = Rbind.rbind_pkg_paths(@pkg_config)
             paths.each do |pkg|
                 config = YAML.load(File.open(File.join(pkg,"config.rbind")).read)
                 path = File.join(pkg,"extern.rbind")
                 ::Rbind.log.info "parsing extern rbind pkg file #{path}"
-                parser.parse(File.open(path).read,config.ruby_module_name)
+                local_parser.parse(File.open(path).read,config.ruby_module_name)
             end
             @gems.each do |gem|
                 path = Rbind.gem_path(gem)
                 config = YAML.load(File.open(File.join(path,"config.rbind")).read)
                 path = File.join(path,"extern.rbind")
                 ::Rbind.log.info "parsing extern gem file #{path}"
-                parser.parse(File.open(path).read,config.ruby_module_name)
+                local_parser.parse(File.open(path).read,config.ruby_module_name)
             end
+            self
         end
 
         def parse_headers_dry(*headers)
@@ -191,9 +194,22 @@ module Rbind
             @generator_c.libs
         end
 
-        def import_std_string
+        def add_std_string
             @generator_c.includes << "<string>"
-            @parser.add_type(RString.new("std::string",@parser))
+            @parser.add_type(StdString.new("std::string",@parser))
+            @parser.type_alias["basic_string"] = @parser.std.string
+            self
+        end
+
+        def add_std_vector
+            @generator_c.includes << "<vector>"
+            @parser.add_type(StdVector.new("std::vector"))
+            self
+        end
+
+        def add_std_types
+            add_std_vector
+            add_std_string
         end
 
         def method_missing(m,*args)

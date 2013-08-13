@@ -3,33 +3,23 @@ module Rbind
     class DefaultParser < RNamespace
         extend ::Rbind::Logger
 
-        def initialize
-            super("root")
-            self.root = true
-            add_default_types
-            @on_type_not_found
+        def initialize(root = nil)
+            super(nil,root)
+            add_default_types if !root
         end
 
-        def normalize_flags(line_number,flags)
+        def normalize_flags(line_number,flags,*valid_flags)
             flags.map do |flag|
                 next if flag.empty?
                 if flag =~ /(\w*)(.*)/
                     DefaultParser.log.debug "input line #{line_number}: ignoring flag #{$2}" unless $2.empty?
-                    $1.to_sym
+                    flag = $1.to_sym
+                    DefaultParser.log.debug "input line #{line_number}: ignoring flag #{$1}" unless valid_flags.include?(flag)
+                    flag
                 else
                     raise "cannot parse flag #{flag.inspect}"
                 end
             end.compact
-        end
-
-        def normalize_default_value(value)
-            value = value.gsub(/std::vector</,"vector<")
-            val = value.gsub(/(.?)vector<(.*)>/,'\1vector_\2')
-            if value != val
-                normalize_default_value(val)
-            else
-                val
-            end
         end
 
         def add_data_type_name(name)
@@ -44,12 +34,6 @@ module Rbind
             ns
         end
 
-        def add_struct_name(name)
-            s = RStruct.new(name)
-            add_type s
-            s
-        end
-
         def add_class_name(name)
             klass = RClass.new(name)
             add_type klass
@@ -60,11 +44,28 @@ module Rbind
             @on_type_not_found = block
         end
 
+        # reverse template masking done by the opencv parser
+        def unmask_template(type_name)
+            if(type_name =~/<.*>/)
+                return type_name
+            end
+
+            if(type_name =~/^vector/ || type_name =~/^Ptr/)
+               if(type_name =~ /^([a-zA-Z\d]*)_([_a-zA-Z\d]*) ?(\(?.*)\)? */)
+                  "#{$1}<#{unmask_template($2)}>#{$3}"
+               else
+                   type_name
+               end
+            else
+                type_name
+            end
+        end
 
         def find_type(owner,type_name)
+            type_name = unmask_template(type_name)
             t = owner.type(type_name,false)
             return t if t
-            
+
             normalized = type_name.split("_")
             name = normalized.shift
             while !normalized.empty?
@@ -88,10 +89,15 @@ module Rbind
             array = flags.shift.split(" ")
             type_name = array.shift
             para_name = array.shift
-            default = normalize_default_value(array.join(" "))
+            default = unmask_template(array.join(" "))
             type = find_type(owner,type_name)
-            flags = normalize_flags(line_number,flags)
-            RParameter.new(para_name,type,default,flags)
+            flags = normalize_flags(line_number,flags,:IO,:O)
+            type = if flags.include?(:O) || flags.include?(:IO) || type.basic_type?
+                       type
+                   else
+                       type.to_const
+                   end
+            RParameter.new(para_name,type,default)
         rescue RuntimeError => e
             raise "input line #{line_number}: #{e}"
         end
@@ -102,8 +108,10 @@ module Rbind
             type_name = array[0]
             name = array[1]
             type = find_type(owner,type_name)
-            flags = normalize_flags(line_number,flags)
-            RAttribute.new(name,type,flags)
+            flags = normalize_flags(line_number,flags,:RW,:R)
+            a = RAttribute.new(name,type)
+            a.writeable!(true) if flags.include? :RW
+            a
         rescue RuntimeError => e
             raise "input line #{line_number}: #{e}"
         end
@@ -111,7 +119,7 @@ module Rbind
         def parse_class(line_number,string)
             lines = string.split("\n")
             a = lines.shift.rstrip
-            unless a =~ /class ([a-zA-Z\.\d_:]*) ?:?([a-zA-Z\.\:, \d_]*)(.*)/
+            unless a =~ /class ([<>a-zA-Z\.\d_:]*) ?:?([<>a-zA-Z\.\:, \d_]*)(.*)/
                 raise "cannot parse class #{a}"
             end
             name = $1
@@ -134,7 +142,7 @@ module Rbind
                                  end
                              end
             flags = if flags
-                       normalize_flags(line_number,flags.gsub(" ","").split("/").compact)
+                       normalize_flags(line_number,flags.gsub(" ","").split("/").compact,:Simple)
                     end
             t = RClass.new(name,*parent_classes)
             t = if t2 = type(t.full_name,false)
@@ -147,10 +155,10 @@ module Rbind
                         t2
                     end
                 else
+                    t.name = t.name.gsub(">>","> >")
                     add_type(t)
                     t
                 end
-            t.flags = flags if flags
             line_counter = 1
             lines.each do |line|
                 a = attribute(line_counter+line_number,line,t)
@@ -169,7 +177,7 @@ module Rbind
             flags = first_line.split(" /")
             name = flags.shift.split(" ")[1]
             flags = normalize_flags(line_number,flags)
-            klass = RStruct.new(name,flags)
+            klass = RClass.new(name)
             add_type(klass)
             line_counter = 1
             a.each do |line|
@@ -195,8 +203,7 @@ module Rbind
                        normalize_flags(line_number,flags.gsub(" ","").split("/").compact)
                     end
 
-            c = RConst.new(name,value)
-            c.flags = flags if flags
+            c = RParameter.new(name,find_type(self,"const int"),value)
             c.extern_package_name = @extern_package_name
             add_const(c)
             [c,1]
@@ -237,7 +244,12 @@ module Rbind
             end
             op = ::Rbind::ROperation.new(name,return_type,*args)
             op.alias = alias_name if alias_name && !alias_name.empty?
-            op.flags = normalize_flags(line_number,flags)
+            flags = normalize_flags(line_number,flags,:S)
+            op = if flags.include?(:S)
+                     op.to_static
+                 else
+                     op
+                 end
             type(op.namespace,true).add_operation(op)
             [op,line_counter]
         end

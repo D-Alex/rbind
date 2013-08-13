@@ -1,5 +1,7 @@
-    # wrapper for <%= signature %>
+<%= add_doc -%>
+    # @note wrapper for <%= signature %>
     def <%=name%>(<%= wrap_parameters_signature %>)
+<%= add_specialize_ruby -%>
     <%- if return_type.basic_type? || operator? -%>
         Rbind::<%= cname %>( <%= wrap_parameters_call %>)
     <%- else -%>
@@ -11,4 +13,5 @@
         result
     <%- end -%>
     end
+<%= add_alias -%>
 

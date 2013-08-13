@@ -2,11 +2,12 @@ module Rbind
     class RAttribute < RBase
         attr_accessor :type
 
-        def initialize(name,type,*flags)
-            super(name,*flags)
+        def initialize(name,type)
+            super(name)
             raise ArgumentError,"no type" unless type
-            raise "wrong name #{name}" if name =~/.*\*.*/
             @type = type
+            @readable = true
+            @writable = false
         end
 
         def ==(other)
@@ -14,32 +15,27 @@ module Rbind
         end
 
         def generate_signatures
-            s = "#{type.signature}#{" " if !type.ptr? && !type.ref?}#{name}"
-            cs= "#{type.csignature}#{" " if !type.ptr? && !type.ref?}#{name}"
-
-            if read_only? && !type.basic_type?
-                s = "const #{s}"
-                cs = "const #{cs}"
+            @type.generate_signatures.map do |s|
+                "#{s} #{name}"
             end
-            [s,cs]
         end
 
-        def valid_flags
-            super << :RW
+        def readable!(value = true)
+            @readable = value
+            self
         end
 
-        def to_ptr
-            a = self.dup
-            a.type = type.to_ptr
-            a
+        def writeable!(value = true)
+            @writeable = value
+            self
         end
 
-        def read_only?
-            !write?
+        def readable?
+            !!@readable
         end
-        
-        def write?
-            flags.include?(:RW) || flags.include?(:IO) || flags.include?(:O)
+
+        def writeable?
+            !!@writeable
         end
     end
 end

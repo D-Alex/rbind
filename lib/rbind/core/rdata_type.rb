@@ -6,36 +6,19 @@ module Rbind
         attr_accessor :invalid_value
         attr_accessor :cdelete_method
         attr_accessor :check_type
-        attr_accessor :extern_package_name
 
-        def initialize(name,*flags)
+        def initialize(name)
             super
             @invalid_value = 0
             @check_type = true
         end
 
-        def extern?
-           @flags.include? :Extern
-        end
-
-        def valid_flags
-            super << :Extern
-        end
-
         def ==(other)
-            other.name == name && other.ptr == ptr
+            other.generate_signatures[0] == generate_signatures[0]
         end
 
-        def generate_signatures
-            if ref?
-                ["#{full_name} &","#{cname} &"]
-            elsif ptr?
-                ["#{full_name} *","#{cname} *"]
-            else
-                super
-            end
-        end
-
+        # indicates of the type shall be checked before 
+        # casting
         def check_type?
             @check_type
         end
@@ -63,42 +46,60 @@ module Rbind
             !!@typedef
         end
 
+        def template?
+            false
+        end
+
         # elementar type of c
         def basic_type?
             true
         end
 
-        # holds ofther operations, types or consts
+        # holds other operations, types or consts
         def container?
             false
         end
 
-        def to_value
-            owner.type(name)
+        def to_raw
+            self
+        end
+
+        def to_single_ptr
+            t = to_raw
+            t = t.to_const if const?
+            t.to_ptr
         end
 
         def to_ptr
-            return self if ptr? && !ref?
-            t = self.dup
-            t.ref = false
-            t.ptr = true
-            t
+            RPointer.new(self)
         end
 
-        def delete!
-            if @owner
-                @owner.delete_type self.name
-            else 
-                raise "#{self} has no owner."
-            end
+        def to_ref
+            RReference.new(self)
+        end
+
+        def to_const
+            RTypeQualifier.new(self,:const => true)
+        end
+
+        def remove_const
+            self
+        end
+
+        def raw?
+            true
+        end
+
+        def const?
+            false
         end
 
         def ptr?
-            !!ptr
+            false
         end
 
         def ref?
-            !!ref
+            false
         end
     end
 end

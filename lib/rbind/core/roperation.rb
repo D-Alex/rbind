@@ -7,19 +7,39 @@ module Rbind
         attr_accessor :base_class
         attr_accessor :ambiguous_name
         attr_accessor :index            # index if overloaded
+        attr_accessor :static
+        attr_accessor :cplusplus_alias
 
-        def initialize(name,return_type,*args)
+        def initialize(name,return_type=nil,*args)
             super(name)
-            raise ArgumentError ,"wrong type #{return_type}" if return_type && !return_type.is_a?(RDataType)
             @return_type = return_type
             @parameters = args.flatten
-            @parameters.each do |para|
-                raise ArgumentError ,"wrong parameter type#{para}" if !para.is_a?(RParameter)
+            @cplusplus_alias = true
+        end
+
+        # indicates if an alias method shall be added
+        # having the same name style like the c++ method
+        def cplusplus_alias?
+            !!@cplusplus_alias
+        end
+
+        def add_parameter(para,&block)
+            para = if para.is_a? String
+                raise "No owner. Cannot create parameter" unless owner
+                para = RParameter.new(para,owner.void)
+                owner.instance_exec(para,&block) if block
+                para
+            else
+                para
             end
-            @cparameters = @parameters
+            if @parameters.find{|p| p.name == para.name}
+                raise RuntimeError,"duplicate parameter name #{para}"
+            end
+            @parameters << para
         end
 
         def ==(other)
+            return false if other.class != self.class
             return false unless name == other.name
             @parameters.each_with_index do |p,i|
                 return false if p != other.parameters[i]
@@ -58,33 +78,34 @@ module Rbind
             @parameters[idx]
         end
 
-        def valid_flags
-            super << :S << :explicit
+        def static?
+            !instance_method?
         end
 
-        def static?
-            @flags.include?(:S)
+        def to_static
+            op = self.dup
+            op.static = true
+            op
         end
 
         def generate_signatures
             s = "#{return_type.signature} " unless constructor?
             s = "#{s}#{full_name}(#{parameters.map(&:signature).join(", ")})"
-            
+
             cs = if constructor?
                     owner.to_ptr.csignature if owner
                 else
                     if return_type.basic_type?
                         return_type.csignature
                     else
-                        return_type.to_ptr.csignature
+                        return_type.to_single_ptr.csignature
                     end
                 end
             paras = cparameters.map do |p|
                 if p.type.basic_type?
                     p.csignature
                 else
-                    tp = p.to_ptr
-                    "#{tp.csignature}"
+                    p.to_single_ptr.csignature
                 end
             end.join(", ")
             cs = "#{cs} #{cname}(#{paras})"
@@ -92,28 +113,39 @@ module Rbind
         end
 
         def instance_method?
-            owner.is_a?(RStruct) && !constructor? && !static?
+            owner.is_a?(RClass) && !constructor? && !@static
+        end
+
+        def cparameters
+            return @cparameters if @cparameters
+            if instance_method?
+                p = RParameter.new("rbind_obj",owner)
+                [p] +  @parameters
+            else
+                @parameters.dup
+            end
         end
 
         def owner=(obj)
             super
             @base_class ||=obj
-            @cparameters = if instance_method?
-                               p = RParameter.new("rbind_obj",obj,nil,:IO)
-                               [p] +  @parameters
-                           else
-                               @parameters
-                           end
             @parameters.each do |para|
                 para.owner = self
             end
             self
         end
 
+        # generates documentation based on the method signature
+        def generate_doc
+
+        end
+
         def constructor?
             !@return_type
         end
 
+        # returns true if the method is a setter or getter
+        # generated for a class attribute
         def attribute?
             false
         end
