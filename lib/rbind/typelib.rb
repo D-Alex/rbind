@@ -26,7 +26,9 @@ module Rbind
                 if registry.include?(typename)
                     rbind[:bowner] = false
                     typelib_t = registry.get(typename)
-                    ::Typelib.to_ruby(typelib_t.from_address(rbind[:obj_ptr].address))
+                    typelib_value = ::Typelib.to_ruby(typelib_t.from_address(rbind[:obj_ptr].address))
+                    rbind.instance_variable_set :@__typelib_original_value__, typelib_value
+                    typelib_value
                 end
             end
 
@@ -59,6 +61,7 @@ module Rbind
                 s[:size] = 0 #obj.marshalling_size
                 s[:type_id] = nil
                 s[:version] = 1
+                s.instance_variable_set :@__typelib_original_value__, typelib_value
                 s
             elsif obj.kind_of?(::Typelib::Type)
                 raise ArgumentError, "#{obj} is a typelib type, but I don't know how to convert it to #{klass}. Expected one of #{typenames.sort.join(", ")}"
