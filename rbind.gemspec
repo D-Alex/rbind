@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
     s.name              = 'rbind'
-    s.version           = '0.0.16'
-    s.date              = '2013-08-13'
+    s.version           = '0.0.19'
+    s.date              = '2013-08-16'
     s.platform          = Gem::Platform::RUBY
     s.authors           = ['Alexander Duda']
     s.email             = ['Alexander.Duda@dfki.de']
@@ -17,6 +17,7 @@ Gem::Specification.new do |s|
     s.require_path      = 'lib'
     s.required_rubygems_version = ">= 1.3.6"
     s.add_runtime_dependency "hooks", ">= 0.3.1"
+    s.add_runtime_dependency "ffi", ">= 1.9.0"
 
     #s.rubyforge_project = s.name
 end
