@@ -4,8 +4,24 @@ require 'rbind/clang/clang_types'
 module::Clang
 module Rbind
   extend FFI::Library
-  ffi_lib 'clang'
-  
+  clang_names = ['clang']
+  %w{3.4 3.3 3.2}.each do |llvm_version|
+      clang_names << File.join("/", "usr", "lib", "llvm-#{llvm_version}", "lib", "libclang.so")
+  end
+  begin
+      actual_clang_name = clang_names.find do |name|
+          begin
+              ffi_lib name
+              true
+          rescue LoadError
+              false
+          end
+      end
+      if !actual_clang_name
+          raise LoadError, "cannot load the clang library, tried: #{clang_names.join(", ")}"
+      end
+  end
+
   # Provides the contents of a file that has not yet been saved to disk.
   # 
   # Each CXUnsavedFile instance provides the name of a file on the
