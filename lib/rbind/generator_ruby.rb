@@ -60,7 +60,7 @@ module Rbind
                           normalize_type_name(parameter.default_value)
                       end
                   else
-                      if(parameter.default_value =~ /([\w:<>]*) *\((.*)\)/)
+                      if(parameter.default_value.gsub(/^new /,"") =~ /([ \w:<>]*) *\((.*)\)/)
                           value = $2
                           t = parameter.owner.owner.type($1,false)
                           ops = Array(parameter.owner.owner.operation($1,false)) if !t
@@ -78,14 +78,15 @@ module Rbind
                                       end
                                   end
                           s = if ops && !ops.empty?
-                              if t
-                                "#{normalize_type_name(t.full_name)}::#{normalize_method_name(ops.first.name)}(#{(value)})"
-                              else
-                                "#{normalize_method_name(ops.first.name)}(#{(value)})"
+                                  if t
+                                      "#{normalize_type_name(t.full_name)}::#{normalize_method_name(ops.first.name)}(#{(value)})"
+                                  else
+                                      "#{normalize_method_name(ops.first.name)}(#{(value)})"
+                                  end
+                              elsif t
+                                  t = t.to_ptr if parameter.type.ptr?
+                                  "#{normalize_type_name(t.full_name)}.new(#{(value)})"
                               end
-                          elsif t
-                              "#{normalize_type_name(t.full_name)}.new(#{(value)})"
-                          end
                       else
                           parameter.default_value
                       end
