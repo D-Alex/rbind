@@ -194,6 +194,10 @@ module Rbind
             Kernel.binding
         end
 
+        def doc?
+            !!doc
+        end
+
         def doc(&block)
             if block
                 @doc = block

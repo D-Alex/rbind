@@ -234,6 +234,10 @@ module Rbind
                 end
             end
 
+            def add_doc
+                GeneratorRuby.normalize_doc(@root.root.doc) if @root.root.doc?
+            end
+
             def normalize_bt(name)
                 GeneratorRuby.normalize_basic_type_name_ffi name
             end
@@ -678,7 +682,7 @@ module Rbind
 
         def initialize(root,module_name ="Rbind",library_name="rbind_lib")
             @root = root
-            @rbind_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rbind.rb")).read)
+            @rbind_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","rbind.rb")).read,nil,"-")
             @module_name = module_name
             @library_name = library_name
             @compact_namespace = true
