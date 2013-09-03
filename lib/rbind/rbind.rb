@@ -94,6 +94,7 @@ module Rbind
                 config = YAML.load(File.open(File.join(pkg,"config.rbind")).read)
                 path = File.join(pkg,"extern.rbind")
                 ::Rbind.log.info "parsing extern rbind pkg file #{path}"
+                raise "no module name found" if !config.ruby_module_name || config.ruby_module_name.empty?
                 local_parser.parse(File.open(path).read,config.ruby_module_name)
             end
             @gems.each do |gem|
