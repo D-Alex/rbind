@@ -51,12 +51,12 @@ module Rbind
 
             def split_name(name)
                 name = normalize(name)
-                # check for template
-                if(name =~/([\w:]*)(<.*)$/)
-                    result = split_name($1)
-                    [result[0],result[1]+$2]
-                elsif(name =~/(.*)::(.*)$/)
+                if(name =~/(.*>)::(.*)$/)
                     [$1,$2]
+                elsif(name =~ /^([\w\d]*)::(.*)/)
+                    b,n = split_name($2)
+                    b = b ? "::#{b}" : ""
+                    [$1+b,n]
                 else
                     [nil,name]
                 end
