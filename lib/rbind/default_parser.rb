@@ -138,13 +138,18 @@ module Rbind
                                                type(names.join("::"),false) if !names.empty?
                                            end
                                      # auto add parent class
-                                     t ||= add_type(RClass.new(RBase.normalize(name)))
+                                     t ||= begin
+                                               t = add_type(RClass.new(RBase.normalize(name)))
+                                               t.extern_package_name = @extern_package_name
+                                               t
+                                           end
                                  end
                              end
             flags = if flags
                        normalize_flags(line_number,flags.gsub(" ","").split("/").compact,:Simple)
                     end
             t = RClass.new(name,*parent_classes)
+            t.extern_package_name = @extern_package_name
             t = if t2 = type(t.full_name,false)
                     if !t2.is_a?(RClass) || (!t2.parent_classes.empty? && t2.parent_classes != t.parent_classes)
                         raise "Cannot add class #{t.full_name}. A different type #{t2} is already registered"
@@ -152,7 +157,7 @@ module Rbind
                         t.parent_classes.each do |p|
                             t2.add_parent p
                         end
-                        t2
+                        t2.extern_package_name = t.extern_package_name
                     end
                 else
                     t.name = t.name.gsub(">>","> >")
@@ -165,7 +170,6 @@ module Rbind
                 t.add_attribute(a)
                 line_counter += 1
             end
-            t.extern_package_name = @extern_package_name
             [t,line_counter]
         rescue RuntimeError  => e
             raise "input line #{line_number}: #{e}"
@@ -251,6 +255,7 @@ module Rbind
                      op
                  end
             type(op.namespace,true).add_operation(op)
+            op.extern_package_name = @extern_package_name
             [op,line_counter]
         end
 
