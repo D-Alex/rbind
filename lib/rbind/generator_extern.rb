@@ -48,7 +48,8 @@ module Rbind
                             end
                         file_extern.write "#{GeneratorExtern.normalize_operation_name(op.full_name)} #{r}\n"
                         op.parameters.each do |p|
-                            file_extern.write "   #{GeneratorExtern.normalize_type_name(p.type.full_name)} #{p.name} #{p.default_value}\n"
+                            file_extern.write "   #{GeneratorExtern.normalize_type_name(p.type.full_name)} #{p.name}"\
+                                              "#{" #{p.default_value}" if p.default_value}#{" /O" unless p.const?}\n"
                         end
                     end
                 end
