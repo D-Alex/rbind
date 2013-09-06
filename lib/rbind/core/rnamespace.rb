@@ -1,5 +1,3 @@
-require 'hooks'
-
 module Rbind
     class RNamespace< RDataType
         include Hooks

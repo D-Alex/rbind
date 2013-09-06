@@ -5,6 +5,9 @@ require 'open-uri'
 
 module Rbind
     class GeneratorRuby
+        include Hooks
+        define_hook :on_normalize_default_value
+
         class << self
             attr_accessor :ruby_default_value_map
             attr_accessor :on_normalize_type_name
@@ -49,6 +52,12 @@ module Rbind
 
         def self.normalize_default_value(parameter)
             return nil unless parameter.default_value
+            if self.callbacks_for_hook(:on_normalize_default_value)
+                results = self.run_hook(:on_normalize_default_value,parameter)
+                results.compact!
+                return results.first unless results.empty?
+            end
+
             val = if parameter.type.basic_type? || parameter.type.ptr?
                       if ruby_default_value_map.has_key?(parameter.default_value)
                           ruby_default_value_map[parameter.default_value]
