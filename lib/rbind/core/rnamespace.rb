@@ -222,12 +222,12 @@ module Rbind
                            op.alias
                        elsif op.alias
                            name = "#{op.alias}#{@operations[op.name].size+1}"
-                           ::Rbind.log.debug "name clash: aliasing #{op.alias} --> #{name}"
+                           ::Rbind.log.debug "add_operation: name clash: aliasing #{op.alias} --> #{name}"
                            name
                        else
                            op.auto_alias = true
                            name = "#{op.name}#{@operations[op.name].size+1}"
-                           ::Rbind.log.debug "name clash: #{op.name} --> #{name}"
+                           ::Rbind.log.debug "add_operation: name clash: #{op.name} --> #{name}"
                            name
                        end
             op.index = @operations[op.name].size
