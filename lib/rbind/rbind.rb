@@ -59,8 +59,8 @@ module Rbind
         end
 
         def parse(*files)
-                parser.parse File.new(path).read
             files.flatten.each do |path|
+                parser.parse path
             end
         end
 
