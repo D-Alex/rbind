@@ -1,6 +1,8 @@
 
 module Rbind
     class ROperation < RBase
+        extend ::Rbind::Logger
+
         attr_accessor :return_type
         attr_accessor :parameters
         attr_accessor :cparameters
@@ -89,6 +91,7 @@ module Rbind
         end
 
         def generate_signatures
+            ROperation.log.debug "ROperation: generate signature for #{return_type}: #{return_type.signature}" unless constructor?
             s = "#{return_type.signature} " unless constructor?
             s = "#{s}#{full_name}(#{parameters.map(&:signature).join(", ")})"
 
