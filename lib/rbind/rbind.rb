@@ -208,9 +208,14 @@ module Rbind
             self
         end
 
+        def add_std_map
+            @generator_c.includes << "<map>"
+            @parser.add_type(StdMap.new("std::map"))
+        end
         def add_std_types
             add_std_vector
             add_std_string
+            add_std_map
         end
 
         def method_missing(m,*args)
