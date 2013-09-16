@@ -9,7 +9,9 @@
     catch(...){strncpy(&last_error_message[0],"Unknown Exception",255);}
     <%- if !return_type || !return_type.basic_type? -%>
     return NULL;
-        <%- elsif return_type.name != "void" || return_type.ptr?-%>
+    <%- elsif return_type.kind_of?(REnum) -%>
+    return (<%= return_type.cname %>) <%= return_type.invalid_value %>;
+    <%- elsif return_type.name != "void" || return_type.ptr?-%>
     return <%= return_type.invalid_value %>;
     <%- end -%>
 }
