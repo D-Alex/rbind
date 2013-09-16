@@ -33,6 +33,11 @@ module Rbind
                     cn = cn.gsub("operator!","operator_not")
                     cn = cn.gsub("operator&","operator_and")
                     cn = cn.gsub("operator[]","operator_array")
+                    cn = cn.gsub("operator<=","operator_less_or_equal")
+                    cn = cn.gsub("operator<","operator_less")
+                    cn = cn.gsub("operator>=","operator_greater_or_equal")
+                    cn = cn.gsub("operator>","operator_greater")
+                    cn = cn.gsub("operator=","operator_assign")
                 end
                 cn = cn.gsub("*","_ptr")
                 cn = cn.gsub("&","_ref")
