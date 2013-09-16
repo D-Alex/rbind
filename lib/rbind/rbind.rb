@@ -213,10 +213,22 @@ module Rbind
             @generator_c.includes << "<map>"
             @parser.add_type(StdMap.new("std::map"))
         end
+
+        def add_std_except
+            @generator_c.includes << "<stdexcept>"
+            exception = RClass.new(RBase.normalize("std::exception"))
+            @parser.add_type(exception)
+
+            runtime_error = RClass.new(RBase.normalize("std::runtime_error"))
+            runtime_error.add_parent(exception)
+            @parser.add_type(runtime_error)
+        end
+
         def add_std_types
             add_std_vector
             add_std_string
             add_std_map
+            add_std_except
         end
 
         def method_missing(m,*args)
