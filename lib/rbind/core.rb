@@ -17,3 +17,4 @@ require 'rbind/core/rtype_qualifier.rb'
 
 require 'rbind/types/std_vector.rb'
 require 'rbind/types/std_string.rb'
+require 'rbind/types/std_map.rb'
