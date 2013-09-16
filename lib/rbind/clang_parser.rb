@@ -211,6 +211,8 @@ module Rbind
                                    ClangParser.log.info "rename #{last_obj.name} to #{cu.spelling}"
                                    last_obj.rename(cu.spelling)
                                    last_obj
+                               else
+                                   process_typedef(cu, parent)
                                end
                            when :var_decl
                                process_variable(cu,parent) if access == :public
@@ -464,5 +466,29 @@ module Rbind
         rescue RuntimeError => e
             raise ClangParserError.new(e.to_s,cursor)
         end
+
+        def process_typedef(cu, parent)
+            ClangParser.log.debug "process_typedef: #{cu}: expression: #{cu.expression} parent: #{parent}"
+            exp = cu.expression.join(" ")
+
+            # Remove typedef label and extract orig type and alias
+            orig_and_alias = exp.sub("typedef","")
+            orig_and_alias = orig_and_alias.sub(";","").strip
+            orig_type = nil
+            alias_type = nil
+
+            if orig_and_alias =~ /(.*)\s+([^\s]+)/
+                orig_type = $1
+                alias_type = $2
+            else
+                raise RuntimeError,"Cannot parse typedef expression #{exp}"
+            end
+
+            t = parent.type(orig_type)
+            ClangParser.log.debug "process_typedef: orig: '#{orig_type}' alias: #{alias_type}"
+            parent.add_type_alias(t, alias_type)
+            parent
+        end
+
     end
 end
