@@ -5,6 +5,10 @@ module::Clang
 module Rbind
   extend FFI::Library
   clang_names = ['clang']
+
+  clang_names = Dir.glob("/usr/lib/libclang*")
+  clang_names.flatten!
+
   %w{3.4 3.3 3.2}.each do |llvm_version|
       clang_names << File.join("/", "usr", "lib", "llvm-#{llvm_version}", "lib", "libclang.so")
   end
