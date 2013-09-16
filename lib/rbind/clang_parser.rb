@@ -40,6 +40,21 @@ module Rbind
         include Hooks
         extend ::Rbind::Logger
 
+        def self.default_arguments
+            @default_arguments || ["-xc++","-fno-rtti"]
+        end
+
+        def self.default_arguments=(args)
+            if not args.kind_of?(Array)
+                raise ArgumentError, "Clang::default_arguments require Array"
+            end
+            @default_arguments = args
+        end
+
+        def self.reset_default_arguments
+            @default_arguments = []
+        end
+
         def initialize(root=nil)
             super(nil,root)
             add_default_types if !root
