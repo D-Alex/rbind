@@ -209,7 +209,7 @@ module Clang
                 Rbind::get_cursor_type self
             end
 
-            def virtul_base?
+            def virtual_base?
                 1 == Rbind::is_virtual_base(self)
             end
 
