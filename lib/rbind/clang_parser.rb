@@ -153,7 +153,8 @@ module Rbind
             access = :public
             last_obj = nil
             cursor.visit_children(false) do |cu,cu_parent|
-                # puts "----->#{cu.kind} #{cu.spelling} #{cu.type.kind} #{cu.specialized_template.kind}"
+                ClangParser.log.debug "process ----->#{cu.kind} #{cu.spelling} #{cu.type.kind} #{cu.specialized_template.kind} ---> expr: #{cu.expression.join('|')}"
+
                 last_obj = case cu.kind
                            when :namespace
                                process_namespace(cu,parent)
@@ -322,7 +323,7 @@ module Rbind
                             ClangParser.log.info " skipping template #{name}"
                             nil
                         else
-                            ClangParser.log.warn " skipping non empty clas #{name}"
+                            ClangParser.log.warn " skipping non empty class #{name}"
                             #raise "Cannot reopening existing class #{klass} which is non-empty!"
                             nil
                         end
