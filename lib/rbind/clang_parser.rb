@@ -125,8 +125,9 @@ module Rbind
                            end
                     t = parent.type(name,!canonical)
                 end
-            # try again without canonical
-            return to_rbind_type(parent,cursor,rbind_type,type_getter,false) if !t
+
+            # try again without canonical when type could not be found or type is template
+            return to_rbind_type(parent,cursor,rbind_type,type_getter,false) if !t || t.template?
 
             # add pointer level
             1.upto(level) do
