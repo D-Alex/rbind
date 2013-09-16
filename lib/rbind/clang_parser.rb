@@ -61,7 +61,7 @@ module Rbind
             @clang = Clang::Clang.new
         end
 
-        def parse(file_path,args = ["-xc++","-fno-rtti"])
+        def parse(file_path, args = ClangParser.default_arguments)
             tu = @clang.translation_unit(file_path,args)
             process(tu.cursor)
             self
