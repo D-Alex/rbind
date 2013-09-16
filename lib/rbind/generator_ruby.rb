@@ -575,7 +575,12 @@ module Rbind
             def add_consts(root=@root)
                 str = @root.consts.map do |c|
                     next if c.extern? || c.ignore?
+                    if not c.default_value
+                        HelperBase.log.warn "#{c.name}: no default value"
+                        next
+                    else
                     "    #{c.name} = #{GeneratorRuby::normalize_type_name(c.default_value)}\n"
+                    end
                 end.join
                 return str unless @compact_namespace
 
