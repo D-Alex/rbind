@@ -308,11 +308,7 @@ module Rbind
             else
                 type.owner = self
                 if type.alias
-                    if check_exist && type(type.alias,false,false)
-                        raise ArgumentError,"A type with the name alias #{type.alias} already exists"
-                    end
-                    raise ArgumentError,"A type alias with the name #{t.alias} already exists" if(t = @type_alias[type.alias])
-                    @type_alias[type.alias] = type.to_raw
+                    add_type_alias(type, type.alias, check_exist)
                 end
                 raise ArgumentError,"A type with the name #{t.full_name} already exists" if(t = @types[type.name])
                 @types[type.name] = type.to_raw
@@ -481,6 +477,24 @@ module Rbind
                         end
                     end
                 end
+            end
+        end
+
+        # Adding a type alias in the main namespace, e.g.
+        # to register existing typedefs
+        #
+        # raises if the alias is already register under a given typename
+        def add_type_alias(known_type, alias_name, check_exist = true)
+            if check_exist && type_alias.has_key?(alias_name)
+                existing_type = type(alias_name, false, false)
+                if known_type.name == existing_type.name
+                    ::Rbind.log.warn "Alias: '#{alias_name} for type '#{known_type.name}' already registered'"
+                else
+                    raise ArgumentError, "Cannot register alias: #{alias_name} for type '#{known_type.name}'. Alias already registered with type: '#{existing_type.name}'"
+                end
+            else
+                ::Rbind.log.debug "Alias: '#{alias_name} for type '#{known_type.name}' registered"
+                @type_alias[alias_name] = known_type.to_raw
             end
         end
 
