@@ -85,6 +85,8 @@ module Clang
     # extend Structs to support auto dispose
     module Rbind
         class Cursor < FFI::Struct
+            extend ::Rbind::Logger
+
             def null?
                 1 == Rbind::cursor_is_null(self)
             end
@@ -149,12 +151,21 @@ module Clang
                 while !cursor.translation_unit?
                     namespace << cursor.spelling
                     cursor = cursor.semantic_parent
+                    if cursor.invalid_file?
+                        Cursor.log.warn "Cursor #{self} with invalid file"
+                        break
+                    end
                 end
+                namespace = namespace.select{|s| !s.empty?}
                 namespace.reverse.join("::")
             end
 
             def translation_unit?
                 kind == :translation_unit
+            end
+
+            def invalid_file?
+                kind == :invalid_file
             end
             
             def expression
