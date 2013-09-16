@@ -387,6 +387,7 @@ module Rbind
 
         # type_getter is also used for :result_type
         def process_parameter(cursor,parent,type_getter = :type)
+            ClangParser.log.debug "process_parameter: spelling: '#{cursor.spelling}' parent #{parent}"
             para_name = cursor.spelling
             para_name = if para_name.empty?
                             "no_name_arg"
@@ -399,6 +400,7 @@ module Rbind
             name_space = []
 
             cursor.visit_children do |cu,_|
+                ClangParser.log.info "process parameter: cursor kind: #{cu.kind} #{cu.expression}"
                 case cu.kind
                 when :integer_literal
                     exp = cu.expression
