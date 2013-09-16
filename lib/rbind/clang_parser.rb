@@ -191,9 +191,12 @@ module Rbind
                                access = normalize_accessor(cu.cxx_access_specifier)
                            when :x_base_specifier
                                local_access = normalize_accessor(cu.cxx_access_specifier)
-                               p = parent.type(RBase.normalize(cu.spelling),false)
-                               ClangParser.log.info "auto add parent class #{cu.spelling}" unless p
-                               p ||= parent.add_type(RClass.new(RBase.normalize(cu.spelling)))
+                               klass_name = cu.spelling
+                               if cu.spelling =~ /\s?([^\s]+$)/
+                                   klass_name = $1
+                               end
+                               ClangParser.log.info "auto add parent class #{klass_name} if needed"
+                               p = parent.type(RClass.new(RBase.normalize(klass_name)), true)
                                parent.add_parent p,local_access
                            when :field_decl
                                process_field(cu,parent) if cu.public? || access == :public
