@@ -211,6 +211,8 @@ module Rbind
         end
 
         class HelperBase
+            extend ::Rbind::Logger
+
             attr_accessor :name
             def initialize(name,root)
                 @name = name.to_s
