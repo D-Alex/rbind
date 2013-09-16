@@ -195,8 +195,9 @@ module Rbind
             @generator_c.libs
         end
 
-        def add_std_string
+        def add_std_string(with_c_string = true)
             @generator_c.includes << "<string>"
+            @generator_c.includes << "<cstring>" if with_c_string
             @parser.add_type(StdString.new("std::string",@parser))
             @parser.type_alias["basic_string"] = @parser.std.string
             self
