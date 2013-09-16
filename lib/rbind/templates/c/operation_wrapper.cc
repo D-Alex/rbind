@@ -1,4 +1,4 @@
-// wrapper for <%= attribute? ? "#{owner.full_name}.#{attribute.name}" : signature %>
+// operation wrapper for <%= attribute? ? "#{owner.full_name}.#{attribute.name}" : signature %>
 <%= csignature %>
 {
     try
