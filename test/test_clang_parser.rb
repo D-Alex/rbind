@@ -104,6 +104,41 @@ describe Rbind::ClangParser do
             assert parser.TestClass.attribute("ifield")
         end
 
+        it "must ignore non public classes and attributes" do
+            file = File.join(File.dirname(__FILE__),'headers','non_public_classes.hpp')
+            parser = Rbind::ClangParser.new
+            parser.parse file
+
+            # Fields
+            assert parser.TestClass.attribute("public_field"), "Public field should exist"
+            assert !parser.TestClass.attribute("protected_field"), "Protected field should not exist"
+            assert !parser.TestClass.attribute("private_field"), "Private field should not exist"
+
+            # Functions
+            assert parser.TestClass.operations.select { |o| o == "void TestClass::public_function()" } , "Public function should exist: #{parser.TestClass.operations}"
+            protected_function = parser.TestClass.operations.select { |o| o == "void TestClass::protected_function()" }
+            assert protected_function.empty? , "Protected function not should exist: #{parser.TestClass.operations}"
+
+            private_function = parser.TestClass.operations.select { |o| o == "void TestClass::private_function()" }
+            assert private_function.empty? , "private function not should exist: #{parser.TestClass.operations}"
+
+            # Classes
+            assert parser.TestClass.PublicClass
+            begin
+                parser.TestClass.ProtectedClass
+                assert false, "Protected class should not be available"
+            rescue
+                assert true, "Protected class should be available"
+            end
+
+            begin
+                parser.TestClass.PrivateClass
+                assert false, "Private class should not be available"
+            rescue
+                assert true, "Private class should be available"
+            end
+        end
+
         it "must parse std vector types" do
             next
             file = File.join(File.dirname(__FILE__),'headers','std_vector.hpp')

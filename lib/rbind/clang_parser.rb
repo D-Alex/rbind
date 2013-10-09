@@ -196,7 +196,7 @@ module Rbind
                                    p = parent.type(RClass.new(RBase.normalize(klass_name)), true)
                                    parent.add_parent p,local_access
                                when :field_decl
-                                   process_field(cu,parent) 
+                                   process_field(cu,parent) if access == :public
                                when :constructor
                                    if access == :public
                                        f = process_function(cu,parent)
@@ -204,7 +204,7 @@ module Rbind
                                        f
                                    end
                                when :x_method
-                                   process_function(cu,parent)
+                                   process_function(cu,parent) if access == :public
                                when :typedef_decl
                                    # rename object if parent has no name
                                    if last_obj && last_obj.respond_to?(:name) && last_obj.name =~ /no_name/
