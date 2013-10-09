@@ -669,31 +669,39 @@ module Rbind
                     h[k] = Array.new
                 end
                 root.each_operation do |o|
-                    next if o.constructor? || o.ignore?
-                    op = OperationHelper.new(o)
-                    if op.instance_method?
-                        ops["rbind_instance_#{op.name}"] << op
-                    else
-                        ops["rbind_static_#{op.name}"] << op
+                    begin
+                        next if o.constructor? || o.ignore?
+                        op = OperationHelper.new(o)
+                        if op.instance_method?
+                            ops["rbind_instance_#{op.name}"] << op
+                        else
+                            ops["rbind_static_#{op.name}"] << op
+                        end
+                    rescue Exception => e
+                        HelperBase.log.warn "Operation '#{o}' not added. #{e}"
                     end
                 end
                 # render method
                 str = ""
                 ops.each_value do |o|
-                    if o.size == 1
-                        op = o.first
-                        str += if op.instance_method?
-                                   @method_wrapper.result(op.binding)
-                               else
-                                   @static_method_wrapper.result(op.binding)
-                               end
-                    else
-                        helper = OverloadedOperationHelper.new(o)
-                        str += if o.first.instance_method?
-                                   @overloaded_method_wrapper.result(helper.binding)
-                               else
-                                   @overloaded_static_method_wrapper.result(helper.binding)
-                               end
+                    begin
+                        if o.size == 1
+                            op = o.first
+                            str += if op.instance_method?
+                                       @method_wrapper.result(op.binding)
+                                   else
+                                       @static_method_wrapper.result(op.binding)
+                                   end
+                        else
+                            helper = OverloadedOperationHelper.new(o)
+                            str += if o.first.instance_method?
+                                       @overloaded_method_wrapper.result(helper.binding)
+                                   else
+                                       @overloaded_static_method_wrapper.result(helper.binding)
+                                   end
+                        end
+                    rescue Exception => e
+                        HelperBase.log.warn "Operation '#{o}' could not be rendered. #{e}"
                     end
                 end
                 return str unless @compact_namespace
