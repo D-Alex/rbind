@@ -1,6 +1,6 @@
 # template <%= full_name %>
 class <%= name %>
-    # @!group Sepcializing
+    # @!group Specializing
 <%= add_specializing %>
     # @!endgroup
 end
