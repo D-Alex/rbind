@@ -1,4 +1,4 @@
-        # wrapper for <%= signature %>
+        # overloaded method wrapper for <%= signature %>
         @@<%=cname%>_defaults<%= index %> ||= <%= signature_default_values %>
         if(args.size >= <%= min_number_of_parameters %> && args.size <= <%= parameters.size %>)
             targs = args.clone
