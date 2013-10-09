@@ -88,13 +88,21 @@ module Rbind
                                   end
                           s = if ops && !ops.empty?
                                   if t
-                                      "#{normalize_type_name(t.full_name)}::#{normalize_method_name(ops.first.name)}(#{(value)})"
+                                      if t.extern_package_name
+                                          "::#{t.extern_package_name}::#{normalize_type_name(t.full_name)}::#{normalize_method_name(ops.first.name)}(#{(value)})"
+                                      else
+                                          "#{normalize_type_name(t.full_name)}::#{normalize_method_name(ops.first.name)}(#{(value)})"
+                                      end
                                   else
                                       "#{normalize_method_name(ops.first.name)}(#{(value)})"
                                   end
                               elsif t
                                   t = t.to_ptr if parameter.type.ptr?
-                                  "#{normalize_type_name(t.full_name)}.new(#{(value)})"
+                                  if t.extern_package_name
+                                      "::#{t.extern_package_name}::#{normalize_type_name(t.full_name)}.new(#{(value)})"
+                                  else
+                                      "#{normalize_type_name(t.full_name)}.new(#{(value)})"
+                                  end
                               end
                       else
                           parameter.default_value
