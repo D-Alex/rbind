@@ -109,7 +109,23 @@ module Rbind
 
 
         def self.normalize_type_name(name)
-            name = name.gsub(" ","")
+            name.strip!
+            # remove const or similar from type declaration
+            if name =~ /\s?([^\s]+$)/
+                name = $1
+            end
+
+            # Parse constant declaration with suffix like 1000000LL
+            if name =~ /^([0-9]+)[uUlL]{0,2}/
+                name = $1
+                return name
+            end
+
+            if RNamespace.default_type_names.include?(name.to_sym)
+                return name.to_s
+            elsif RNamespace.default_type_alias.keys.include?(name.to_sym)
+                return RNamespace.default_type_alias[name.to_sym].to_s
+            end
 
             # map template classes
             # std::vector<std::string> -> Std::Vector::Std_String
@@ -150,7 +166,7 @@ module Rbind
 
         def self.normalize_basic_type_name_ffi(name)
             n = ffi_type_map[name]
-            n ||= name
+            n ||= normalize_type_name(name)
             if n =~ /\*/
                 "pointer"
             else
@@ -209,7 +225,15 @@ module Rbind
             #remove all remaining #
             name = name.gsub(/#/, '')
             name = normalize_alias_method_name(name)
-            raise "generated empty name for #{orig_name}" if name.empty?
+            raise RuntimeError, "Normalization failed: generated empty name for #{orig_name}" if name.empty?
+            name
+        end
+
+        def self.normalize_enum_name(name)
+            name = GeneratorRuby.normalize_basic_type_name_ffi name
+            #to lower and substitute namespace :: with _
+            name = name.gsub("::","_")
+            name = name.downcase
             name
         end
 
@@ -256,6 +280,10 @@ module Rbind
                 GeneratorRuby.normalize_basic_type_name_ffi name
             end
 
+            def normalize_enum(name)
+                GeneratorRuby.normalize_enum_name(name)
+            end
+
             def normalize_m(name)
                 GeneratorRuby.normalize_method_name name
             end
@@ -292,6 +320,8 @@ module Rbind
                                           if op.return_type.basic_type?
                                               if op.return_type.ptr?
                                                   ":pointer"
+                                              elsif op.return_type.kind_of?(REnum)
+                                                  ":#{normalize_enum op.return_type.to_raw.csignature}"
                                               else
                                                   ":#{normalize_bt op.return_type.to_raw.csignature}"
                                               end
@@ -307,6 +337,14 @@ module Rbind
                             if p.type.basic_type?
                                 if p.type.ptr?
                                     ":pointer"
+                                elsif p.type.kind_of?(REnum)
+                                    # Includes enums, which need to be defined accordingly
+                                    # using ffi:
+                                    # enum :normalized_name, [:first, 1,
+                                    #                         :second,
+                                    #                         :third]
+                                    #
+                                    ":#{normalize_enum p.type.to_raw.csignature}"
                                 else
                                     ":#{normalize_bt p.type.to_raw.csignature}"
                                 end
@@ -327,6 +365,25 @@ module Rbind
                 str+"\n"
                 str.gsub(/\n/,"\n        ")
             end
+
+            def add_enums
+                str = "\n"
+                @root.root.each_type do |t|
+                    if t.kind_of?(REnum)
+                        str += "\tenum :#{GeneratorRuby::normalize_enum_name(t.to_raw.csignature)}, ["
+                        t.values.each do |name,value|
+                            if value
+                                str += ":#{name},#{value}, "
+                            else
+                                str += ":#{name}, "
+                            end
+                        end
+                        str += "]\n\n"
+                    end
+                end
+                str
+            end
+
         end
 
         class RTypeTemplateHelper < HelperBase
