@@ -62,7 +62,7 @@ module Rbind
         # called from RTemplate when ruby_specialize is called for the instance
         def specialize_ruby_specialization(klass)
             %Q$ include Enumerable
-            alias get_element []
+            alias get_element array_operator
             def [](idx)
                 validate_index(idx)
                 get_element(idx)

@@ -10,6 +10,7 @@ module Rbind
         class << self
             attr_accessor :default_type_names
             attr_accessor :default_type_alias
+            attr_accessor :default_operator_alias
         end
         # TODO move somewhere else
         self.default_type_names = [:int,:int8,:int32,:int64,:uint,:uint8,:uint32,:uint64,
@@ -21,6 +22,28 @@ module Rbind
         self.default_type_alias= { :u_char => :uchar, :u_short => :ushort, :u_long => :ulong,
                                    :u_long_long => :ulong_long,:u_int => :uint, :uint128 => :uint128,
                                    :char_s => :char}
+
+        self.default_operator_alias = {
+                "()" => "fct",
+                "!=" => "unequal",
+                "==" => "equal",
+                "&=" => "and_set",
+                "+=" => "add",
+                "-=" => "sub",
+                "+"  => "plus",
+                "-"  => "minus",
+                "*"  => "mult",
+                "/"  => "div",
+                "!"  => "not",
+                "&"  => "and",
+                "[]" => "array",
+                "<=" => "less_or_equal",
+                "<"  => "less",
+                ">=" => "greater_or_equal",
+                ">"  => "greater",
+                "="  => "assign"
+            }
+
 
         attr_reader :operations
         attr_reader :operation_alias
@@ -496,6 +519,10 @@ module Rbind
                 ::Rbind.log.debug "Alias: '#{alias_name} for type '#{known_type.name}' registered"
                 @type_alias[alias_name] = known_type.to_raw
             end
+        end
+
+        def self.default_operators
+            default_operator_alias.keys
         end
 
         def method_missing(m,*args)

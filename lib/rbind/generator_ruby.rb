@@ -160,25 +160,28 @@ module Rbind
 
         def self.normalize_alias_method_name(orig_name)
             name = orig_name
+
             #replace operatorX with the correct ruby operator when 
             #there are overloaded operators
             name = if name =~/^operator(.*)/
                         n = $1
                         if n =~ /\(\)/
                             raise "forbbiden method name #{name}"
-                        elsif n=~ /(.*)(\d)/
-                            if $1 == "[]"
-                                "array_operator#{$2}"
-                            elsif $1 == "+"
-                                "plus_operator#{$2}"
-                            elsif $1 == "-"
-                                "minus_operator#{$2}"
-                            elsif $1 == "*"
-                                "mul_operator#{$2}"
-                            elsif $1 == "/"
-                                "div_operator#{$2}"
+                        elsif not n=~ /([\w\d]|[^\W\D])/
+                            # consider number suffix for operations
+                            # TODO: why actually does that need consideration?
+                            n =~ /(.*)(\d)?/
+                            # non word and not digit, but also not word
+                            # nor digit ->> special characters appended
+                            if n == "=="
+                                # that one can stay also in ruby
+                                n
                             else
-                                raise "forbbiden method name #{name}"
+                                alias_name = RNamespace.default_operator_alias[$1]
+                                if not alias_name
+                                    raise ArgumentError, "Normalization failed. Operator: #{$1} unknown"
+                                end
+                                "#{alias_name}_operator#{$2}"
                             end
                         else
                             n
