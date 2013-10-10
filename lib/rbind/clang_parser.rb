@@ -187,6 +187,9 @@ module Rbind
                                when :x_access_specifier
                                    access = normalize_accessor(cu.cxx_access_specifier)
                                when :x_base_specifier
+                                   if access == :public
+                                       next
+                                   end
                                    local_access = normalize_accessor(cu.cxx_access_specifier)
                                    klass_name = cu.spelling
                                    if cu.spelling =~ /\s?([^\s]+$)/
@@ -206,6 +209,9 @@ module Rbind
                                when :x_method
                                    process_function(cu,parent) if access == :public
                                when :typedef_decl
+                                   if access != :public
+                                       next
+                                   end
                                    # rename object if parent has no name
                                    if last_obj && last_obj.respond_to?(:name) && last_obj.name =~ /no_name/
                                        ClangParser.log.info "rename #{last_obj.name} to #{cu.spelling}"
@@ -215,9 +221,9 @@ module Rbind
                                        process_typedef(cu, parent)
                                    end
                                when :var_decl
-                                   process_variable(cu,parent)
+                                   process_variable(cu,parent) if access == :public
                                when :unexposed_decl
-                                   process(cu)
+                                   process(cu) if access == :public
                                else
                                    #puts "skip: #{cu.spelling}"
                                end

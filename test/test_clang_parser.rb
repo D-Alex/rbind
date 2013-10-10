@@ -12,7 +12,6 @@ describe Rbind::ClangParser do
     describe "parse" do
 
         it "must parse enums" do
-            next
             file = File.join(File.dirname(__FILE__),'headers','enums.hpp')
             parser = Rbind::ClangParser.new
             parser.parse file
@@ -24,7 +23,6 @@ describe Rbind::ClangParser do
         end
 
         it "must parse constants" do
-            next
             file = File.join(File.dirname(__FILE__),'headers','constants.hpp')
             parser = Rbind::ClangParser.new
             parser.parse file
@@ -41,7 +39,6 @@ describe Rbind::ClangParser do
         end
 
         it "must parse c functions" do
-            next
             file = File.join(File.dirname(__FILE__),'headers','cfunctions.h')
             parser = Rbind::ClangParser.new
             parser.parse file
@@ -80,22 +77,21 @@ describe Rbind::ClangParser do
         end
 
         it "must parse classes" do
-            next
             file = File.join(File.dirname(__FILE__),'headers','classes.hpp')
             parser = Rbind::ClangParser.new
             parser.parse file
 
-            assert_equal "void TestClass::TestClass(int i1, char c)", parser.TestClass.TestClass.signature
+            assert_equal "TestClass::TestClass(int i1, char c)", parser.TestClass.TestClass.signature
             assert_equal "void TestClass::setB(bool val)", parser.TestClass.setB.signature
             assert_equal "void TestClass::setF(float& val)", parser.TestClass.setF.signature
             assert_equal "void TestClass::setF2(const float& val)", parser.TestClass.setF2.signature
             assert_equal "void TestClass::setD(double& val)", parser.TestClass.setD.signature
-            assert_equal "TestClass TestClass::setS(TestClass other)", parser.TestClass.setS.signature
-            assert_equal "TestClass TestClass::setS2(TestClass* other)", parser.TestClass.setS2.signature
-            assert_equal "TestClass TestClass::setS3(TestClass** other)", parser.TestClass.setS3.signature
-            assert_equal "TestClass TestClass::setS4(TestClass& other)", parser.TestClass.setS4.signature
-            assert_equal "TestClass TestClass::setS5(const TestClass& other)", parser.TestClass.setS5.signature
-            assert_equal "TestClass TestClass::setS6(const TestClass* other)", parser.TestClass.setS6.signature
+            assert_equal "void TestClass::setS(TestClass other)", parser.TestClass.setS.signature
+            assert_equal "void TestClass::setS2(TestClass* other)", parser.TestClass.setS2.signature
+            assert_equal "void TestClass::setS3(TestClass** other)", parser.TestClass.setS3.signature
+            assert_equal "void TestClass::setS4(TestClass& other)", parser.TestClass.setS4.signature
+            assert_equal "void TestClass::setS5(const TestClass& other)", parser.TestClass.setS5.signature
+            assert_equal "void TestClass::setS6(const TestClass* other)", parser.TestClass.setS6.signature
             assert_equal "TestClass TestClass::getS()", parser.TestClass.getS.signature
             assert_equal "TestClass* TestClass::getS2()", parser.TestClass.getS2.signature
             assert_equal "TestClass& TestClass::getS3()", parser.TestClass.getS3.signature
@@ -140,9 +136,9 @@ describe Rbind::ClangParser do
         end
 
         it "must parse std vector types" do
-            next
             file = File.join(File.dirname(__FILE__),'headers','std_vector.hpp')
             parser = Rbind::ClangParser.new
+            parser.add_type(Rbind::StdVector.new("std::vector"), parser)
             parser.parse file
 
             assert_equal "void TestClass::setValues(std::vector<int> ints)", parser.TestClass.setValues.signature
