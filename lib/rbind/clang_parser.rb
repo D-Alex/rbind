@@ -179,11 +179,11 @@ module Rbind
                                when :class_template
                                    process_class_template(cu,parent, access) if access == :public
                                when :template_type_parameter
-                                   #   if !cu.spelling.empty?
-                                   #       parent.add_type(RTemplateParameter.new(cu.spelling))
-                                   #   else
-                                   #       ClangParser.log.info "no template parameter name"
-                                   #   end
+                                      if !cu.spelling.empty?
+                                          parent.add_type(RTemplateParameter.new(cu.spelling))
+                                      else
+                                          ClangParser.log.info "no template parameter name"
+                                      end
                                when :x_access_specifier
                                    access = normalize_accessor(cu.cxx_access_specifier)
                                when :x_base_specifier

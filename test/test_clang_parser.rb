@@ -167,11 +167,14 @@ describe Rbind::ClangParser do
         end
 
         # this is not fully supported yet
-        #it "must parse templates" do
-        #    file = File.join(File.dirname(__FILE__),'headers','templates.hpp')
-        #    parser = Rbind::ClangParser.new
-        #    parser.parse file
-        #    #assert_equal("_test123",result)
-        #end
+        it "must parse templates" do
+            file = File.join(File.dirname(__FILE__),'headers','templates.hpp')
+            parser = Rbind::ClangParser.new
+            parser.parse file
+
+            assert_equal "void Test::setType(TemplateType<int> type)", parser.Test.setType.signature
+            template_type = parser.type("TemplateType<int>")
+            assert_equal "void TemplateType<int>::setInt(int i)", template_type.setInt.signature
+        end
     end
 end
