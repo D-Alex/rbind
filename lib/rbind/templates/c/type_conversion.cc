@@ -1,5 +1,6 @@
 // converts <%= full_name %>* to <%= cname %>*
-<%= cname %>* toC(<%= full_name %>* ptr, bool owner)
+
+const <%= cname %>* toC(const <%= full_name %>* ptr, bool owner)
 {
     <%= cname %>* r_ptr = new <%= cname %>;
     r_ptr->version = <%= version %>;
@@ -8,6 +9,11 @@
     r_ptr->bowner = owner;
     r_ptr->obj_ptr = (void*) ptr;
     return r_ptr;
+}
+
+<%= cname %>* toC(<%= full_name %>* ptr, bool owner)
+{
+    return const_cast<<%= cname %>*>(toC(static_cast<const <%= full_name %>*>(ptr)));
 }
 
 // converts const <%= cname %> to const <%= full_name %>
