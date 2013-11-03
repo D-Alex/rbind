@@ -201,6 +201,10 @@ module Rbind
                                            "return #{full_name}(#{paras});"
                                        elsif return_type.ptr?
                                            "return toC(#{full_name}(#{paras}));"
+                                       elsif return_type.ref?
+                                           # the returned value is not the owner of the
+                                           # object
+                                           "return toC(&#{full_name}(#{paras}),false);"
                                        else
                                            "return toC(new #{return_type.full_name}(#{full_name}(#{paras})));"
                                        end
