@@ -308,7 +308,7 @@ module Rbind
                                       end
                         args = op.cparameters.map do |p|
                             if p.type.basic_type?
-                                if p.type.ptr?
+                                if p.type.ptr? || p.type.ref?
                                     ":pointer"
                                 else
                                     ":#{normalize_bt p.type.to_raw.csignature}"
@@ -451,7 +451,11 @@ module Rbind
                 def generate_param_doc
                     paras = parameters.map do |p|
                         n = GeneratorRuby.normalize_arg_name p.name
-                        t = GeneratorRuby.normalize_type_name(p.type.full_name)
+                        t = if p.type.basic_type? && (p.type.ptr? || p.type.ref?)
+                                "FFI::MemoryPointer"
+                            else
+                                GeneratorRuby.normalize_type_name(p.type.full_name)
+                            end
                         "# @param [#{t}] #{n} #{p.doc}"
                     end
                     if return_type

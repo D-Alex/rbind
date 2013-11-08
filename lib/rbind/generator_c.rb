@@ -194,6 +194,10 @@ module Rbind
                                        if operator? && parameters.size == 1
                                            if return_type.basic_type?
                                                "return *rbind_obj_ #{operator} #{paras};"
+                                           elsif return_type.ref?
+                                               # the returned value is not the owner of the
+                                               # object
+                                               "return toC(&(*rbind_obj_ #{operator} #{paras}),false);"
                                            else
                                                "return toC(new #{return_type.full_name}(*rbind_obj_ #{operator} #{paras}));"
                                            end

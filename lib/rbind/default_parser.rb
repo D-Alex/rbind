@@ -92,7 +92,13 @@ module Rbind
             default = unmask_template(array.join(" "))
             type = find_type(owner,type_name)
             flags = normalize_flags(line_number,flags,:IO,:O)
-            type = if flags.include?(:O) || flags.include?(:IO) || type.basic_type?
+            type = if flags.include?(:O) || flags.include?(:IO)
+                       if type.ptr?
+                           type
+                       else
+                           type.to_ref  # the opencv parser encodes references as flags
+                       end
+                   elsif type.basic_type?
                        type
                    else
                        type.to_const
@@ -237,8 +243,14 @@ module Rbind
                 flags << return_type_name
                 return_type_name = nil
             end
+            flags = normalize_flags(line_number,flags,:S,:O)
             return_type = if return_type_name && !return_type_name.empty?
-                              find_type(owner,return_type_name)
+                              t = find_type(owner,return_type_name)
+                              if !t.ptr? && flags.include?(:O)
+                                  t.to_ref
+                              else
+                                  t
+                              end
                           end
             line_counter = 1
             args = a.map do |line|
@@ -248,7 +260,6 @@ module Rbind
             end
             op = ::Rbind::ROperation.new(name,return_type,*args)
             op.alias = alias_name if alias_name && !alias_name.empty?
-            flags = normalize_flags(line_number,flags,:S)
             op = if flags.include?(:S)
                      op.to_static
                  else
