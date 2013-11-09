@@ -20,6 +20,8 @@ module Rbind
                 name = normalize(name)
                 cn = "#{cprefix}#{name.gsub("::","_")}"
                 if cn =~ /operator/
+                    cn = cn.gsub("operator++","operator_plusplus")
+                    cn = cn.gsub("operator++","operator_minusminus")
                     cn = cn.gsub("operator()","operator_fct")
                     cn = cn.gsub("operator!=","operator_unequal")
                     cn = cn.gsub("operator==","operator_equal")
