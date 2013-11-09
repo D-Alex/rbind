@@ -179,6 +179,10 @@ module Rbind
                                 "array_operator#{$2}"
                             elsif $1 == "+"
                                 "plus_operator#{$2}"
+                            elsif $1 == "++"
+                                "plusplus_operator#{$2}"
+                            elsif $1 == "--"
+                                "minusminus_operator#{$2}"
                             elsif $1 == "-"
                                 "minus_operator#{$2}"
                             elsif $1 == "*"
@@ -189,7 +193,13 @@ module Rbind
                                 raise "forbbiden method name #{name}"
                             end
                         else
-                            n
+                            if n == "++"
+                                "plusplus_operator#{$2}"
+                            elsif n == "--"
+                                "minusminus_operator#{$2}"
+                            else
+                                n
+                            end
                         end
                    else
                       name
