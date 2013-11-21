@@ -377,7 +377,8 @@ module Rbind
             t ||=  if search_owner && name =~ /([:\w]*)<(.*)>$/
                       t = type($1,false) if $1 && !$1.empty?
                       t2 = type($2,false) if $2 && !$2.empty?
-                      if t && t2
+                      # template is known to this library
+                      if t && t2 
                           name = "#{t.name}<#{t2.full_name}>"
                           t3 ||= t.owner.type(name,false,false)
                           t3 ||= begin
@@ -396,9 +397,15 @@ module Rbind
                                          end
                                      end
                                  end
+                      # generic template is unknown
+                      # check if specialised template is known
+                      elsif t2 && $1 && !$1.empty? 
+                          real_name = "#{$1}<#{t2.full_name}>".gsub(">>","> >")
+                          type(real_name,false) if(real_name != name) # prevent stack level too deep
+                      else
+                          nil
                       end
                     end
-
             if !t && raise_
                 if self.class.callbacks_for_hook(:on_type_not_found)
                     results = self.run_hook(:on_type_not_found,self,name)
