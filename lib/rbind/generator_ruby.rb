@@ -8,15 +8,6 @@ module Rbind
         include Hooks
         define_hook :on_normalize_default_value
 
-        class << self
-            attr_accessor :ruby_default_value_map
-            attr_accessor :on_normalize_type_name
-            attr_accessor :ffi_type_map
-        end
-        self.ruby_default_value_map ||= {"true" => "true","TRUE" => "true", "false" => "false","FALSE" => "false"}
-        self.ffi_type_map ||= {"char *" => "string","unsigned char" => "uchar" ,"const char *" => "string","uint8_t" => "uint8" }
-
-
         def self.keyword?(name)
             %w{__FILE__ __LINE__ alias and begin BEGIN break case class def defined? do else elsif end END ensure false for if in module next nil not or redo rescue retry return self super then true undef unless until when while yield}.include? name
         end
@@ -29,10 +20,6 @@ module Rbind
             end
             str = str.gsub(/^ *#?/,"# ")
             "#{str.chomp}\n"
-        end
-
-        def self.on_normalize_type_name(&block)
-            self.on_normalize_type_name = block
         end
 
         def self.normalize_arg_name(name)
@@ -48,197 +35,6 @@ module Rbind
             else
                 name
             end
-        end
-
-        def self.normalize_default_value(parameter)
-            return nil unless parameter.default_value
-            if self.callbacks_for_hook(:on_normalize_default_value)
-                results = self.run_hook(:on_normalize_default_value,parameter)
-                results.compact!
-                return results.first unless results.empty?
-            end
-
-            val = if parameter.type.basic_type? || parameter.type.ptr?
-                      if ruby_default_value_map.has_key?(parameter.default_value)
-                          ruby_default_value_map[parameter.default_value]
-                      elsif parameter.type.name == "float"
-                          parameter.default_value.gsub("f","")
-                      elsif parameter.type.name == "double"
-                          parameter.default_value.gsub(/\.$/,".0").gsub(/^\./,"0.")
-                      else
-                          normalize_type_name(parameter.default_value)
-                      end
-                  else
-                      if(parameter.default_value.gsub(/^new /,"") =~ /([ \w:<>]*) *\((.*)\)/)
-                          value = $2
-                          t = parameter.owner.owner.type($1,false)
-                          ops = Array(parameter.owner.owner.operation($1,false)) if !t
-                          t,ops = if t || !ops.empty?
-                                      [t,ops]
-                                  else
-                                      ns = RBase.namespace($1)
-                                      name = RBase.basename($1)
-                                      if ns && name
-                                          t = parameter.owner.owner.type(ns,false) 
-                                          ops = Array(t.operation(name,false)) if t
-                                          [t,ops]
-                                      else
-                                          [nil,nil]
-                                      end
-                                  end
-                          s = if ops && !ops.empty?
-                                  if t
-                                      if t.extern_package_name
-                                          "::#{t.extern_package_name}::#{normalize_type_name(t.full_name)}::#{normalize_method_name(ops.first.name)}(#{(value)})"
-                                      else
-                                          "#{normalize_type_name(t.full_name)}::#{normalize_method_name(ops.first.name)}(#{(value)})"
-                                      end
-                                  else
-                                      "#{normalize_method_name(ops.first.name)}(#{(value)})"
-                                  end
-                              elsif t
-                                  t = t.to_ptr if parameter.type.ptr?
-                                  if t.extern_package_name
-                                      "::#{t.extern_package_name}::#{normalize_type_name(t.full_name)}.new(#{(value)})"
-                                  else
-                                      "#{normalize_type_name(t.full_name)}.new(#{(value)})"
-                                  end
-                              end
-                      else
-                          parameter.default_value
-                      end
-                  end
-            if val
-                val
-            else
-               raise "cannot parse default parameter value #{parameter.default_value} for #{parameter.owner.signature}"
-            end
-        end
-
-
-        def self.normalize_type_name(name)
-            name.gsub!(" ","")
-
-            # custom normalization
-            if @on_normalize_type_name
-                n = @on_normalize_type_name.call(name)
-                return n if n
-            end
-
-            # Parse constant declaration with suffix like 1000000LL
-            if name =~ /^([0-9]+)[uUlL]{0,2}/
-                name = $1
-                return name
-            end
-
-            # map template classes
-            # std::vector<std::string> -> Std::Vector::Std_String
-            if name =~ /([\w:]*)<(.*)>$/
-                return "#{normalize_type_name($1)}::#{normalize_type_name($2).gsub("::","_")}"
-            else
-                name
-            end
-
-            # map all uint ... to Fixnum
-            if name =~ /^u?int\d*$/ || name =~ /^u?int\d+_t$/
-                return "Fixnum"
-            end
-
-            name = name.gsub(/^_/,"")
-            names = name.split("::").map do |n|
-                n.gsub(/^(\w)(.*)/) do 
-                    $1.upcase+$2
-                end
-            end
-            n = names.last.split("_").first
-            if n == n.upcase
-                return names.join("::")
-            end
-
-            name = names.join("::").split("_").map do |n|
-                n.gsub(/^(\w)(.*)/) do 
-                    $1.upcase+$2
-                end
-            end.join("")
-        end
-
-        def self.normalize_basic_type_name_ffi(name)
-            n = ffi_type_map[name]
-            n ||= name
-            if n =~ /\*/
-                "pointer"
-            else
-                n
-            end
-        end
-
-        def self.normalize_alias_method_name(orig_name)
-            name = orig_name
-
-            #replace operatorX with the correct ruby operator when 
-            #there are overloaded operators
-            name = if name =~/^operator(.*)/
-                        n = $1
-                        if n =~ /\(\)/
-                            raise "forbbiden method name #{name}"
-                        elsif not n=~ /([\w\d]|[^\W\D])/
-                            # consider number suffix for operations
-                            # TODO: why actually does that need consideration?
-                            n =~ /(.*)(\d)?/
-                            # non word and not digit, but also not word
-                            # nor digit ->> special characters appended
-                            if n == "=="
-                                # that one can stay also in ruby
-                                n
-                            else
-                                alias_name = RNamespace.default_operator_alias[$1]
-                                if not alias_name
-                                    raise ArgumentError, "Normalization failed. Operator: #{$1} unknown"
-                                end
-                                "#{alias_name}_operator#{$2}"
-                            end
-                        else
-                            if n == "++"
-                                "plusplus_operator#{$2}"
-                            elsif n == "--"
-                                "minusminus_operator#{$2}"
-                            else
-                                n
-                            end
-                        end
-                   else
-                      name
-                   end
-        end
-
-        # normalize c method to meet ruby conventions
-        # see unit tests
-        def self.normalize_method_name(orig_name)
-            #remove cprefix and replaced _X with #X
-            name = orig_name.to_s.gsub(/\A#{RBase.cprefix}/, "") .gsub(/_((?<!\A)\p{Lu})/u, '#\1')
-            #replaced X with _x
-            name = name.gsub(/(?<!\A)[\p{Lu}\d]/u, '_\0').downcase
-            #replaced _x_ with #x#
-            name = name.to_s.gsub(/[_#]([a-zA-Z\d])[_#]/u, '#\1#')
-            #replaced _x$ with #x
-            name = name.to_s.gsub(/[_#]([a-zA-Z\d])$/u, '#\1')
-            #replaced ## with _
-            name = name.gsub(/##/, '_')
-            #replace #xx with _xx
-            name = name.gsub(/#([a-zA-Z\d]{2})/, '_\1')
-            #remove all remaining #
-            name = name.gsub(/#/, '')
-            name = normalize_alias_method_name(name)
-            raise RuntimeError, "Normalization failed: generated empty name for #{orig_name}" if name.empty?
-            name
-        end
-
-        def self.normalize_enum_name(name)
-            name = GeneratorRuby.normalize_basic_type_name_ffi name
-            #to lower and substitute namespace :: with _
-            name = name.gsub("::","_")
-            name = name.downcase
-            name
         end
 
         class HelperBase
@@ -260,7 +56,7 @@ module Rbind
         end
 
         class RBindHelper < HelperBase
-            attr_reader :compact_namespace
+            attr_reader :compact_namespace # todo 
 
             def initialize(name, root,compact_namespace=true)
                 @compact_namespace = compact_namespace
@@ -278,18 +74,6 @@ module Rbind
 
             def add_doc
                 GeneratorRuby.normalize_doc(@root.root.doc) if @root.root.doc?
-            end
-
-            def normalize_bt(name)
-                GeneratorRuby.normalize_basic_type_name_ffi name
-            end
-
-            def normalize_enum(name)
-                GeneratorRuby.normalize_enum_name(name)
-            end
-
-            def normalize_m(name)
-                GeneratorRuby.normalize_method_name name
             end
 
             def library_name
@@ -310,60 +94,7 @@ module Rbind
                 str = ""
                 @root.root.each_type do |t|
                     next if t.basic_type? && !t.is_a?(RNamespace)
-                    str += "\n#methods for #{t.full_name}\n"
-                    if t.cdelete_method
-                        str += "attach_function :#{normalize_m t.cdelete_method},"\
-                        ":#{t.cdelete_method},[#{normalize_t(t.full_name)}],:void\n"
-                        str += "attach_function :#{normalize_m t.cdelete_method}_struct,"\
-                        ":#{t.cdelete_method},[#{normalize_t(t.full_name)}Struct],:void\n"
-                    end
-                    t.each_operation do |op|
-                        return_type = if op.constructor?
-                                          "#{normalize_t op.owner.full_name}"
-                                      else
-                                          if op.return_type.basic_type?
-                                              if op.return_type.ptr?
-                                                  ":pointer"
-                                              elsif op.return_type.kind_of?(REnum)
-                                                  ":#{normalize_enum op.return_type.to_raw.csignature}"
-                                              else
-                                                  ":#{normalize_bt op.return_type.to_raw.csignature}"
-                                              end
-                                          else
-                                              if op.return_type.extern_package_name
-                                                  normalize_t("::#{op.return_type.extern_package_name}::#{op.return_type.to_raw.full_name}")
-                                              else
-                                                  normalize_t op.return_type.to_raw.full_name
-                                              end
-                                          end
-                                      end
-                        args = op.cparameters.map do |p|
-                            if p.type.basic_type?
-                                if p.type.ptr? || p.type.ref?
-                                    ":pointer"
-                                elsif p.type.kind_of?(REnum)
-                                    # Includes enums, which need to be defined accordingly
-                                    # using ffi:
-                                    # enum :normalized_name, [:first, 1,
-                                    #                         :second,
-                                    #                         :third]
-                                    #
-                                    ":#{normalize_enum p.type.to_raw.csignature}"
-                                else
-                                    ":#{normalize_bt p.type.to_raw.csignature}"
-                                end
-                            else
-                                if p.type.extern_package_name
-                                    normalize_t("::#{p.type.extern_package_name}::#{p.type.to_raw.full_name}")
-                                else
-                                    normalize_t p.type.to_raw.full_name
-                                end
-                            end
-                        end
-                        fct_name = normalize_m op.cname
-                        str += "attach_function :#{fct_name},:#{op.cname},[#{args.join(",")}],#{return_type}\n"
-                        str
-                    end
+                    str += t.to_ruby.render_ffi
                     str+"\n"
                 end
                 str+"\n"
@@ -374,20 +105,11 @@ module Rbind
                 str = "\n"
                 @root.root.each_type do |t|
                     if t.kind_of?(REnum)
-                        str += "\tenum :#{GeneratorRuby::normalize_enum_name(t.to_raw.csignature)}, ["
-                        t.values.each do |name,value|
-                            if value
-                                str += ":#{name},#{value}, "
-                            else
-                                str += ":#{name}, "
-                            end
-                        end
-                        str += "]\n\n"
+                        str += t.to_ruby.render_ffi
                     end
                 end
                 str
             end
-
         end
 
         class RTypeTemplateHelper < HelperBase

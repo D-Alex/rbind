@@ -1,0 +1,8 @@
+require 'rbind/ruby/rbase.rb'
+require 'rbind/ruby/rdata_type.rb'
+require 'rbind/ruby/renum.rb'
+require 'rbind/ruby/rattribute.rb'
+require 'rbind/ruby/rparameter.rb'
+require 'rbind/ruby/roperation.rb'
+require 'rbind/ruby/rnamespace.rb'
+require 'rbind/ruby/rclass.rb'
