@@ -6,7 +6,7 @@ module Rbind
         def self.extend_object(o)
             super
             o.log = ::Logger.new(STDOUT)
-            o.log.level = ::Logger::DEBUG
+            o.log.level = ::Logger::INFO
             o.log.progname = o.name
             o.log.formatter = proc do |severity, datetime, progname, msg|
                 "#{progname}: #{msg}\n"
