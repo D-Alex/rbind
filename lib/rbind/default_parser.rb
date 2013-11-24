@@ -270,14 +270,7 @@ module Rbind
             [op,line_counter]
         end
 
-        def parse(file_path,extern_package_name=nil)
-            string  = ""
-            if not File.exists?(file_path)
-                raise ArgumentError, "File '#{file_path}' does not exist"
-            else
-                string = File.new(file_path).read
-            end
-
+        def parse(string,extern_package_name=nil)
             @extern_package_name = extern_package_name
 
             a = split(string)

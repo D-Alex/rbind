@@ -60,7 +60,8 @@ module Rbind
 
         def parse(*files)
             files.flatten.each do |path|
-                parser.parse path
+                raise ArgumentError, "File '#{path}' does not exist" if not File.exists?(path)
+                parser.parse File.new(path).read
             end
         end
 
