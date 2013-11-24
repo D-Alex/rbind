@@ -117,10 +117,12 @@ module Rbind
 
 
         def self.normalize_type_name(name)
-            name.strip!
-            # remove const or similar from type declaration
-            if name =~ /\s?([^\s]+$)/
-                name = $1
+            name.gsub!(" ","")
+
+            # custom normalization
+            if @on_normalize_type_name
+                n = @on_normalize_type_name.call(name)
+                return n if n
             end
 
             # Parse constant declaration with suffix like 1000000LL
@@ -129,24 +131,12 @@ module Rbind
                 return name
             end
 
-            if RNamespace.default_type_names.include?(name.to_sym)
-                return name.to_s
-            elsif RNamespace.default_type_alias.keys.include?(name.to_sym)
-                return RNamespace.default_type_alias[name.to_sym].to_s
-            end
-
             # map template classes
             # std::vector<std::string> -> Std::Vector::Std_String
             if name =~ /([\w:]*)<(.*)>$/
                 return "#{normalize_type_name($1)}::#{normalize_type_name($2).gsub("::","_")}"
             else
                 name
-            end
-
-            # custom normalization
-            if @on_normalize_type_name
-                n = @on_normalize_type_name.call(name)
-                return n if n
             end
 
             # map all uint ... to Fixnum
@@ -174,7 +164,7 @@ module Rbind
 
         def self.normalize_basic_type_name_ffi(name)
             n = ffi_type_map[name]
-            n ||= normalize_type_name(name)
+            n ||= name
             if n =~ /\*/
                 "pointer"
             else
