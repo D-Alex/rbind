@@ -1,5 +1,5 @@
 <%= add_doc -%>
-    # @note wrapper for <%= signature %>
+    # @note method wrapper for <%= signature %>
     def <%=name%>(<%= wrap_parameters_signature %>)
 <%= add_specialize_ruby -%>
     <%- if return_type.basic_type? || operator? -%>

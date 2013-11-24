@@ -9,7 +9,7 @@ module Rbind
         end
 
         def generate_signatures
-            ["#{full_name} = #{values}","const #{cname} = #{values}"]
+            ["#{full_name}","#{cname}"]
         end
 
         def basic_type?

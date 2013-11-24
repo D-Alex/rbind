@@ -59,8 +59,8 @@ module Rbind
         end
 
         def parse(*files)
-            files.each do |path|
-                parser.parse File.new(path).read
+            files.flatten.each do |path|
+                parser.parse path
             end
         end
 
@@ -195,8 +195,9 @@ module Rbind
             @generator_c.libs
         end
 
-        def add_std_string
+        def add_std_string(with_c_string = true)
             @generator_c.includes << "<string>"
+            @generator_c.includes << "<cstring>" if with_c_string
             @parser.add_type(StdString.new("std::string",@parser))
             @parser.type_alias["basic_string"] = @parser.std.string
             self
@@ -208,9 +209,26 @@ module Rbind
             self
         end
 
+        def add_std_map
+            @generator_c.includes << "<map>"
+            @parser.add_type(StdMap.new("std::map"))
+        end
+
+        def add_std_except
+            @generator_c.includes << "<stdexcept>"
+            exception = RClass.new(RBase.normalize("std::exception"))
+            @parser.add_type(exception)
+
+            runtime_error = RClass.new(RBase.normalize("std::runtime_error"))
+            runtime_error.add_parent(exception)
+            @parser.add_type(runtime_error)
+        end
+
         def add_std_types
             add_std_vector
             add_std_string
+            add_std_map
+            add_std_except
         end
 
         def method_missing(m,*args)

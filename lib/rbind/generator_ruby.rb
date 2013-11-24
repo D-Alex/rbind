@@ -117,7 +117,23 @@ module Rbind
 
 
         def self.normalize_type_name(name)
-            name = name.gsub(" ","")
+            name.strip!
+            # remove const or similar from type declaration
+            if name =~ /\s?([^\s]+$)/
+                name = $1
+            end
+
+            # Parse constant declaration with suffix like 1000000LL
+            if name =~ /^([0-9]+)[uUlL]{0,2}/
+                name = $1
+                return name
+            end
+
+            if RNamespace.default_type_names.include?(name.to_sym)
+                return name.to_s
+            elsif RNamespace.default_type_alias.keys.include?(name.to_sym)
+                return RNamespace.default_type_alias[name.to_sym].to_s
+            end
 
             # map template classes
             # std::vector<std::string> -> Std::Vector::Std_String
@@ -158,7 +174,7 @@ module Rbind
 
         def self.normalize_basic_type_name_ffi(name)
             n = ffi_type_map[name]
-            n ||= name
+            n ||= normalize_type_name(name)
             if n =~ /\*/
                 "pointer"
             else
@@ -168,29 +184,28 @@ module Rbind
 
         def self.normalize_alias_method_name(orig_name)
             name = orig_name
+
             #replace operatorX with the correct ruby operator when 
             #there are overloaded operators
             name = if name =~/^operator(.*)/
                         n = $1
                         if n =~ /\(\)/
                             raise "forbbiden method name #{name}"
-                        elsif n=~ /(.*)(\d)/
-                            if $1 == "[]"
-                                "array_operator#{$2}"
-                            elsif $1 == "+"
-                                "plus_operator#{$2}"
-                            elsif $1 == "++"
-                                "plusplus_operator#{$2}"
-                            elsif $1 == "--"
-                                "minusminus_operator#{$2}"
-                            elsif $1 == "-"
-                                "minus_operator#{$2}"
-                            elsif $1 == "*"
-                                "mul_operator#{$2}"
-                            elsif $1 == "/"
-                                "div_operator#{$2}"
+                        elsif not n=~ /([\w\d]|[^\W\D])/
+                            # consider number suffix for operations
+                            # TODO: why actually does that need consideration?
+                            n =~ /(.*)(\d)?/
+                            # non word and not digit, but also not word
+                            # nor digit ->> special characters appended
+                            if n == "=="
+                                # that one can stay also in ruby
+                                n
                             else
-                                raise "forbbiden method name #{name}"
+                                alias_name = RNamespace.default_operator_alias[$1]
+                                if not alias_name
+                                    raise ArgumentError, "Normalization failed. Operator: #{$1} unknown"
+                                end
+                                "#{alias_name}_operator#{$2}"
                             end
                         else
                             if n == "++"
@@ -224,11 +239,21 @@ module Rbind
             #remove all remaining #
             name = name.gsub(/#/, '')
             name = normalize_alias_method_name(name)
-            raise "generated empty name for #{orig_name}" if name.empty?
+            raise RuntimeError, "Normalization failed: generated empty name for #{orig_name}" if name.empty?
+            name
+        end
+
+        def self.normalize_enum_name(name)
+            name = GeneratorRuby.normalize_basic_type_name_ffi name
+            #to lower and substitute namespace :: with _
+            name = name.gsub("::","_")
+            name = name.downcase
             name
         end
 
         class HelperBase
+            extend ::Rbind::Logger
+
             attr_accessor :name
             def initialize(name,root)
                 @name = name.to_s
@@ -269,6 +294,10 @@ module Rbind
                 GeneratorRuby.normalize_basic_type_name_ffi name
             end
 
+            def normalize_enum(name)
+                GeneratorRuby.normalize_enum_name(name)
+            end
+
             def normalize_m(name)
                 GeneratorRuby.normalize_method_name name
             end
@@ -305,6 +334,8 @@ module Rbind
                                           if op.return_type.basic_type?
                                               if op.return_type.ptr?
                                                   ":pointer"
+                                              elsif op.return_type.kind_of?(REnum)
+                                                  ":#{normalize_enum op.return_type.to_raw.csignature}"
                                               else
                                                   ":#{normalize_bt op.return_type.to_raw.csignature}"
                                               end
@@ -320,6 +351,14 @@ module Rbind
                             if p.type.basic_type?
                                 if p.type.ptr? || p.type.ref?
                                     ":pointer"
+                                elsif p.type.kind_of?(REnum)
+                                    # Includes enums, which need to be defined accordingly
+                                    # using ffi:
+                                    # enum :normalized_name, [:first, 1,
+                                    #                         :second,
+                                    #                         :third]
+                                    #
+                                    ":#{normalize_enum p.type.to_raw.csignature}"
                                 else
                                     ":#{normalize_bt p.type.to_raw.csignature}"
                                 end
@@ -340,6 +379,25 @@ module Rbind
                 str+"\n"
                 str.gsub(/\n/,"\n        ")
             end
+
+            def add_enums
+                str = "\n"
+                @root.root.each_type do |t|
+                    if t.kind_of?(REnum)
+                        str += "\tenum :#{GeneratorRuby::normalize_enum_name(t.to_raw.csignature)}, ["
+                        t.values.each do |name,value|
+                            if value
+                                str += ":#{name},#{value}, "
+                            else
+                                str += ":#{name}, "
+                            end
+                        end
+                        str += "]\n\n"
+                    end
+                end
+                str
+            end
+
         end
 
         class RTypeTemplateHelper < HelperBase
@@ -597,7 +655,12 @@ module Rbind
             def add_consts(root=@root)
                 str = @root.consts.map do |c|
                     next if c.extern? || c.ignore?
+                    if not c.default_value
+                        HelperBase.log.warn "#{c.name}: no default value"
+                        next
+                    else
                     "    #{c.name} = #{GeneratorRuby::normalize_type_name(c.default_value)}\n"
+                    end
                 end.join
                 return str unless @compact_namespace
 
@@ -624,31 +687,39 @@ module Rbind
                     h[k] = Array.new
                 end
                 root.each_operation do |o|
-                    next if o.constructor? || o.ignore?
-                    op = OperationHelper.new(o)
-                    if op.instance_method?
-                        ops["rbind_instance_#{op.name}"] << op
-                    else
-                        ops["rbind_static_#{op.name}"] << op
+                    begin
+                        next if o.constructor? || o.ignore?
+                        op = OperationHelper.new(o)
+                        if op.instance_method?
+                            ops["rbind_instance_#{op.name}"] << op
+                        else
+                            ops["rbind_static_#{op.name}"] << op
+                        end
+                    rescue Exception => e
+                        HelperBase.log.warn "Operation '#{o}' not added. #{e}"
                     end
                 end
                 # render method
                 str = ""
                 ops.each_value do |o|
-                    if o.size == 1
-                        op = o.first
-                        str += if op.instance_method?
-                                   @method_wrapper.result(op.binding)
-                               else
-                                   @static_method_wrapper.result(op.binding)
-                               end
-                    else
-                        helper = OverloadedOperationHelper.new(o)
-                        str += if o.first.instance_method?
-                                   @overloaded_method_wrapper.result(helper.binding)
-                               else
-                                   @overloaded_static_method_wrapper.result(helper.binding)
-                               end
+                    begin
+                        if o.size == 1
+                            op = o.first
+                            str += if op.instance_method?
+                                       @method_wrapper.result(op.binding)
+                                   else
+                                       @static_method_wrapper.result(op.binding)
+                                   end
+                        else
+                            helper = OverloadedOperationHelper.new(o)
+                            str += if o.first.instance_method?
+                                       @overloaded_method_wrapper.result(helper.binding)
+                                   else
+                                       @overloaded_static_method_wrapper.result(helper.binding)
+                                   end
+                        end
+                    rescue Exception => e
+                        HelperBase.log.warn "Operation '#{o}' could not be rendered. #{e}"
                     end
                 end
                 return str unless @compact_namespace

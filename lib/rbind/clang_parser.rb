@@ -40,13 +40,28 @@ module Rbind
         include Hooks
         extend ::Rbind::Logger
 
+        def self.default_arguments
+            @default_arguments || ["-xc++","-fno-rtti"]
+        end
+
+        def self.default_arguments=(args)
+            if not args.kind_of?(Array)
+                raise ArgumentError, "Clang::default_arguments require Array"
+            end
+            @default_arguments = args
+        end
+
+        def self.reset_default_arguments
+            @default_arguments = []
+        end
+
         def initialize(root=nil)
             super(nil,root)
             add_default_types if !root
             @clang = Clang::Clang.new
         end
 
-        def parse(file_path,args = ["-xc++","-fno-rtti"])
+        def parse(file_path, args = ClangParser.default_arguments)
             tu = @clang.translation_unit(file_path,args)
             process(tu.cursor)
             self
@@ -78,7 +93,8 @@ module Rbind
         end
 
         # if rbind_type is given only pointer/ref or qualifier are applied
-        def to_rbind_type(parent,cursor,rbind_type=nil,type_getter = :type,canonical = true)
+        def to_rbind_type(parent,cursor,rbind_type=nil,type_getter = :type,canonical = true, use_fallback = true)
+            ClangParser.log.debug "Parent: #{parent} --> cursor: #{cursor.expression}, spelling #{cursor.spelling}"
             clang_type = cursor.send(type_getter)
             return nil if clang_type.null?
             clang_type = clang_type.canonical_type if canonical
@@ -110,8 +126,13 @@ module Rbind
                            end
                     t = parent.type(name,!canonical)
                 end
-            # try again without canonical
-            return to_rbind_type(parent,cursor,rbind_type,type_getter,false) if !t
+
+            # try again without canonical when type could not be found or type is template
+            if use_fallback
+                if !t || t.template?
+                    return to_rbind_type(parent,cursor,rbind_type,type_getter,false, false)
+                end
+            end
 
             # add pointer level
             1.upto(level) do
@@ -133,74 +154,79 @@ module Rbind
         end
 
         # entry call to parse a file
-        def process(cursor,parent = self)
-            access = :public
+        def process(cursor, parent = self, access = :public)
             last_obj = nil
             cursor.visit_children(false) do |cu,cu_parent|
-                # puts "----->#{cu.kind} #{cu.spelling} #{cu.type.kind} #{cu.specialized_template.kind}"
-                last_obj = case cu.kind
-                           when :namespace
-                               process_namespace(cu,parent)
-                           when :enum_decl
-                               process_enum(cu,parent) if access == :public
-                           when :union_decl
-                               #        puts "got union declaration #{cu.spelling}"
-                           when :struct_decl
-                               if access == :public
-                                   process_class(cu,parent)
+                ClangParser.log.debug "process ----->#{cu.kind} #{cu.spelling} #{cu.type.kind} #{cu.specialized_template.kind} ---> expr: #{cu.expression.join('|')} -- public: #{cu.public?} access: #{access}"
+                begin
+                    last_obj = case cu.kind
+                               when :namespace
+                                   process_namespace(cu,parent)
+                               when :enum_decl
+                                   process_enum(cu,parent) if access == :public
+                               when :union_decl
+                                   #        puts "got union declaration #{cu.spelling}"
+                               when :struct_decl
+                                   process_class(cu,parent,:public) if access == :public
+                               when :class_decl
+                                   process_class(cu,parent, :private) if access == :public
+                               when :function_decl
+                                   process_function(cu,parent) if access == :public
+                               when :macro_expansion # CV_WRAP ...
+                                   #           puts "got macro #{cu.spelling} #{cu.location}"
+                               when :function_template
+                                   #        puts "got template fuction #{cu.spelling} #{cu.location}"
+                               when :class_template
+                                   process_class_template(cu,parent, access) if access == :public
+                               when :template_type_parameter
+                                   #   if !cu.spelling.empty?
+                                   #       parent.add_type(RTemplateParameter.new(cu.spelling))
+                                   #   else
+                                   #       ClangParser.log.info "no template parameter name"
+                                   #   end
+                               when :x_access_specifier
+                                   access = normalize_accessor(cu.cxx_access_specifier)
+                               when :x_base_specifier
+                                   local_access = normalize_accessor(cu.cxx_access_specifier)
+                                   klass_name = cu.spelling
+                                   if cu.spelling =~ /\s?([^\s]+$)/
+                                       klass_name = $1
+                                   end
+                                   ClangParser.log.info "auto add parent class #{klass_name} if needed"
+                                   p = parent.type(RClass.new(RBase.normalize(klass_name)), true)
+                                   parent.add_parent p,local_access
+                               when :field_decl
+                                   process_field(cu,parent) if access == :public
+                               when :constructor
+                                   if access == :public
+                                       f = process_function(cu,parent)
+                                       f.return_type = nil if f
+                                       f
+                                   end
+                               when :x_method
+                                   process_function(cu,parent) if access == :public
+                               when :typedef_decl
+                                   # rename object if parent has no name
+                                   if last_obj && last_obj.respond_to?(:name) && last_obj.name =~ /no_name/
+                                       ClangParser.log.info "rename #{last_obj.name} to #{cu.spelling}"
+                                       last_obj.rename(cu.spelling)
+                                       last_obj
+                                   else
+                                       process_typedef(cu, parent)
+                                   end
+                               when :var_decl
+                                   process_variable(cu,parent)
+                               when :unexposed_decl
+                                   process(cu)
+                               else
+                                   #puts "skip: #{cu.spelling}"
                                end
-                           when :class_decl
-                               if access == :public
-                                   access = :private
-                                   klass = process_class(cu,parent)
-                                   access = :public
-                                   klass
-                               end
-                           when :function_decl
-                               process_function(cu,parent) if access == :public
-                           when :macro_expansion # CV_WRAP ...
-                               #           puts "got macro #{cu.spelling} #{cu.location}"
-                           when :function_template
-                               #        puts "got template fuction #{cu.spelling} #{cu.location}"
-                           when :class_template
-                               process_class_template(cu,parent)
-                           when :template_type_parameter
-                               #   if !cu.spelling.empty?
-                               #       parent.add_type(RTemplateParameter.new(cu.spelling))
-                               #   else
-                               #       ClangParser.log.info "no template parameter name"
-                               #   end
-                           when :x_access_specifier
-                               access = normalize_accessor(cu.cxx_access_specifier)
-                           when :x_base_specifier
-                               local_access = normalize_accessor(cu.cxx_access_specifier)
-                               p = parent.type(RBase.normalize(cu.spelling),false)
-                               ClangParser.log.info "auto add parent class #{cu.spelling}" unless p
-                               p ||= parent.add_type(RClass.new(RBase.normalize(cu.spelling)))
-                               parent.add_parent p,local_access
-                           when :field_decl
-                               process_field(cu,parent) if cu.public? || access == :public
-                           when :constructor
-                               if access == :public
-                                   f = process_function(cu,parent)
-                                   f.return_type = nil if f
-                                   f
-                               end
-                           when :x_method
-                               process_function(cu,parent) if access == :public
-                           when :typedef_decl
-                               # rename object if parent has no name
-                               if last_obj && last_obj.name =~ /no_name/
-                                   ClangParser.log.info "rename #{last_obj.name} to #{cu.spelling}"
-                                   last_obj.rename(cu.spelling)
-                                   last_obj
-                               end
-                           when :var_decl
-                               process_variable(cu,parent) if access == :public
-                           else
-                               #puts "skip: #{cu.spelling}"
-                           end
-                raise ClangParserError.new("jjj",cu) if last_obj.is_a? Fixnum
+                    rescue Exception => e
+                        ClangParser.log.debug "Parsing failed -- skipping"
+                    end
+                    raise ClangParserError.new("jjj",cu) if last_obj.is_a? Fixnum
+
+
             end
         end
 
@@ -262,7 +288,7 @@ module Rbind
             a
         end
 
-        def process_class_template(cursor,parent)
+        def process_class_template(cursor,parent,access)
             class_name = cursor.spelling
             ClangParser.log.info "processing class template #{parent}::#{class_name}"
 
@@ -275,11 +301,11 @@ module Rbind
                         ClangParser.log.info " reopening existing class template #{klass}"
                         klass
                     end
-            process(cursor,klass)
+            process(cursor,klass, access)
             klass
         end
 
-        def process_class(cursor,parent)
+        def process_class(cursor,parent,access)
             class_name = cursor.spelling
             class_name = if class_name.empty?
                              "no_name_class"
@@ -306,13 +332,13 @@ module Rbind
                             ClangParser.log.info " skipping template #{name}"
                             nil
                         else
-                            ClangParser.log.warn " skipping non empty clas #{name}"
+                            ClangParser.log.warn " skipping non empty class #{name}"
                             #raise "Cannot reopening existing class #{klass} which is non-empty!"
                             nil
                         end
                     end
             #klass.extern_package_name = nil
-            process(cursor,klass) if klass
+            process(cursor,klass,access) if klass
             klass
         end
 
@@ -339,8 +365,10 @@ module Rbind
             # to prevent name clashes
             expression = cursor.expression.join()
             args.each_with_index do |arg,idx|
-                if(!arg.default_value && (expression =~ /#{arg.name}=(\w*)/))
-                    arg.default_value = $1
+                if(!arg.default_value && (expression =~ /#{arg.name}(=\w*)?[,)]/))
+                    if $1 and !$1.empty?
+                        arg.default_value = $1.sub("=","")
+                    end
                 end
                 arg.name = if(arg.name == "no_name_arg")
                                arg.name + idx.to_s
@@ -368,6 +396,7 @@ module Rbind
 
         # type_getter is also used for :result_type
         def process_parameter(cursor,parent,type_getter = :type)
+            ClangParser.log.debug "process_parameter: spelling: '#{cursor.spelling}' type: '#{cursor.type}' kind '#{cursor.type.kind} parent #{parent}"
             para_name = cursor.spelling
             para_name = if para_name.empty?
                             "no_name_arg"
@@ -380,6 +409,7 @@ module Rbind
             name_space = []
 
             cursor.visit_children do |cu,_|
+                ClangParser.log.info "process parameter: cursor kind: #{cu.kind} #{cu.expression}"
                 case cu.kind
                 when :integer_literal
                     exp = cu.expression
@@ -412,6 +442,14 @@ module Rbind
                     name_space << cu.spelling
                 when :type_ref
                     type_cursor = cu
+                when :compound_stmt
+                when :parm_decl
+                when :member_ref
+                when :constant_array
+                    exp = cu.expression
+                    exp.pop
+                    default_value = exp.gsub("{","[")
+                    default_value = default_value.gsub("}","]")
                 end
             end
             type = if template_name.empty?
@@ -447,5 +485,33 @@ module Rbind
         rescue RuntimeError => e
             raise ClangParserError.new(e.to_s,cursor)
         end
+
+        def process_typedef(cu, parent)
+            ClangParser.log.debug "process_typedef: #{cu}: expression: #{cu.expression} parent: #{parent}"
+            exp = cu.expression.join(" ")
+
+            # Remove typedef label and extract orig type and alias
+            orig_and_alias = exp.sub("typedef","")
+            orig_and_alias = orig_and_alias.sub(";","").strip
+            orig_type = nil
+            alias_type = nil
+
+            if orig_and_alias =~ /(.*)\s+([^\s]+)/
+                orig_type = $1
+                alias_type = $2
+            else
+                raise RuntimeError,"Cannot parse typedef expression #{exp}"
+            end
+
+            begin
+                t = parent.type(orig_type)
+                ClangParser.log.debug "process_typedef: orig: '#{orig_type}' alias: #{alias_type}"
+                parent.add_type_alias(t, alias_type)
+            rescue RuntimeError => e
+                ClangParser.log.warn "Cannot process typedef expression for orig: '#{orig_type}' alias: '#{alias_type}' : #{e}"
+            end
+            parent
+        end
+
     end
 end

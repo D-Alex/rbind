@@ -84,7 +84,7 @@ module Rbind
                               []
                           end
                     other_ops.delete_if do |other_op|
-                        next true if !other_op
+                        next true if !other_op || other_op.constructor?
                         op = ops.find do |o|
                             o == other_op
                         end

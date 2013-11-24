@@ -26,7 +26,7 @@ module Rbind
         def cname(value=nil)
             if !value
                 if basic_type? && !@cname
-                    name
+                    full_name
                 else
                     super
                 end

@@ -20,27 +20,17 @@ module Rbind
                 name = normalize(name)
                 cn = "#{cprefix}#{name.gsub("::","_")}"
                 if cn =~ /operator/
-                    cn = cn.gsub("operator++","operator_plusplus")
-                    cn = cn.gsub("operator--","operator_minusminus")
-                    cn = cn.gsub("operator()","operator_fct")
-                    cn = cn.gsub("operator!=","operator_unequal")
-                    cn = cn.gsub("operator==","operator_equal")
-                    cn = cn.gsub("operator&=","operator_and_set")
-                    cn = cn.gsub("operator+=","operator_add")
-                    cn = cn.gsub("operator-=","operator_sub")
-                    cn = cn.gsub("operator+","operator_plus")
-                    cn = cn.gsub("operator-","operator_minus")
-                    cn = cn.gsub("operator*","operator_mult")
-                    cn = cn.gsub("operator/","operator_div")
-                    cn = cn.gsub("operator!","operator_not")
-                    cn = cn.gsub("operator&","operator_and")
-                    cn = cn.gsub("operator[]","operator_array")
+                    # Use alias instead of operator symbol for name
+                    RNamespace.default_operator_alias.each do |op, alias_name|
+                        cn = cn.gsub("operator#{op}","operator_#{alias_name}")
+                    end
                 end
                 cn = cn.gsub("*","_ptr")
                 cn = cn.gsub("&","_ref")
                 cn = cn.gsub("<","_")
                 cn = cn.gsub(">","")
                 cn = cn.gsub(",","__")
+                cn
             end
 
             def normalize(name)

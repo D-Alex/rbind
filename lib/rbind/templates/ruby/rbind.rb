@@ -18,6 +18,10 @@ module <%= name %>
                end
         ffi_lib ["<%= library_name %>", path]
 
+        # @!group Enums
+        <%= add_enums%>
+        # @!endgroup
+
         #add error checking
         #rbindCreateMatrix -> create_matrix
         def self.attach_function(ruby_name,c_name, args, returns,error_checking=true)
