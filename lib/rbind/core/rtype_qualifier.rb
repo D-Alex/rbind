@@ -56,5 +56,14 @@ module Rbind
                 str + s
             end
         end
+
+        # Resolve the current delegate to the underlying object
+        def get_base_delegate
+            obj = __getobj__
+            while obj.respond_to?(:__getobj__)
+                obj = obj.__getobj__
+            end
+            obj
+        end
     end
 end

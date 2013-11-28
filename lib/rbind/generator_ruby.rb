@@ -321,25 +321,40 @@ module Rbind
                         return_type = if op.constructor?
                                           "#{normalize_t op.owner.full_name}"
                                       else
-                                          if op.return_type.basic_type?
-                                              if op.return_type.ptr?
+                                          op_return_type = op.return_type
+                                          if op_return_type.respond_to?(:get_base_delegate)
+                                              if klass = op_return_type.get_base_delegate
+                                                  op_return_type = klass if klass.kind_of?(REnum)
+                                              end
+                                          end
+
+                                          if op_return_type.basic_type?
+                                              if op_return_type.ptr?
                                                   ":pointer"
-                                              elsif op.return_type.kind_of?(REnum)
-                                                  ":#{normalize_enum op.return_type.to_raw.csignature}"
+                                              elsif op_return_type.kind_of?(REnum)
+                                                  ":#{normalize_enum op_return_type.to_raw.csignature}"
                                               else
-                                                  ":#{normalize_bt op.return_type.to_raw.csignature}"
+                                                  ":#{normalize_bt op_return_type.to_raw.csignature}"
                                               end
                                           else
-                                              if op.return_type.extern_package_name
-                                                  normalize_t("::#{op.return_type.extern_package_name}::#{op.return_type.to_raw.full_name}")
+                                              if op_return_type.extern_package_name
+                                                  normalize_t("::#{op_return_type.extern_package_name}::#{op_return_type.to_raw.full_name}")
+                                              elsif op_return_type.kind_of?(REnum)
+                                                  ":#{normalize_enum op_return_type.to_raw.full_name}"
                                               else
-                                                  normalize_t op.return_type.to_raw.full_name
+                                                  normalize_t op_return_type.to_raw.full_name
                                               end
                                           end
                                       end
                         args = op.cparameters.map do |p|
-                            if p.type.basic_type?
-                                if p.type.ptr? || p.type.ref?
+                            p_type = p.type
+                            if p_type.respond_to?(:get_base_delegate)
+                                if klass = p_type.get_base_delegate
+                                    p_type = klass if klass.kind_of?(REnum)
+                                end
+                            end
+                            if p_type.basic_type?
+                                if p_type.ptr? || p.type.ref?
                                     ":pointer"
                                 elsif p.type.kind_of?(REnum)
                                     # Includes enums, which need to be defined accordingly
@@ -353,10 +368,12 @@ module Rbind
                                     ":#{normalize_bt p.type.to_raw.csignature}"
                                 end
                             else
-                                if p.type.extern_package_name
-                                    normalize_t("::#{p.type.extern_package_name}::#{p.type.to_raw.full_name}")
+                                if p_type.extern_package_name
+                                    normalize_t("::#{p_type.extern_package_name}::#{p_type.to_raw.full_name}")
+                                elsif p_type.kind_of?(REnum)
+                                    ":#{normalize_enum p_type.to_raw.full_name}"
                                 else
-                                    normalize_t p.type.to_raw.full_name
+                                    normalize_t p_type.to_raw.full_name
                                 end
                             end
                         end
