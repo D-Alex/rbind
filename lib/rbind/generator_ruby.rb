@@ -119,6 +119,14 @@ module Rbind
         def self.normalize_type_name(name)
             name.gsub!(" ","")
 
+            # map template classes
+            # std::vector<std::string> -> Std::Vector::Std_String
+            if name =~ /([\w:]*)<(.*)>$/
+                return "#{normalize_type_name($1)}::#{normalize_type_name($2).gsub("::","_")}"
+            else
+                name
+            end
+
             # custom normalization
             if @on_normalize_type_name
                 n = @on_normalize_type_name.call(name)
@@ -129,14 +137,6 @@ module Rbind
             if name =~ /^([0-9]+)[uUlL]{0,2}/
                 name = $1
                 return name
-            end
-
-            # map template classes
-            # std::vector<std::string> -> Std::Vector::Std_String
-            if name =~ /([\w:]*)<(.*)>$/
-                return "#{normalize_type_name($1)}::#{normalize_type_name($2).gsub("::","_")}"
-            else
-                name
             end
 
             # map all uint ... to Fixnum
