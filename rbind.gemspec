@@ -15,6 +15,7 @@ Gem::Specification.new do |s|
     s.required_rubygems_version = ">= 1.3.6"
     s.add_runtime_dependency "hooks", ">= 0.3.1"
     s.add_runtime_dependency "ffi", ">= 1.9.0"
+    s.add_runtime_dependency "utilrb", ">= 2.0.0"
 
     #s.rubyforge_project = s.name
 end
