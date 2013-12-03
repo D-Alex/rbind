@@ -238,7 +238,8 @@ module Rbind
                          end
 
             ns = RBase.namespace(name)
-            owner = type(ns,true)
+            owner = type(ns,false)
+            owner ||= add_namespace_name(ns)
             if return_type_name == "explicit"
                 flags << return_type_name
                 return_type_name = nil
