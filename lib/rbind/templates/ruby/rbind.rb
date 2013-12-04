@@ -12,7 +12,7 @@ module <%= name %>
 
         #load library <%= library_name %>
 
-        pkg = Utilrb::PkgConfig.new("<%= library_name")
+        pkg = Utilrb::PkgConfig.new("<%= library_name %>")
         path = Dir.glob(File.join(pkg.libdir, "lib<%= library_name %>.*")).first
         path = File.absolute_path(path)
         ffi_lib ["<%= library_name %>", path]
