@@ -13,7 +13,7 @@ const <%= cname %>* toC(const <%= full_name %>* ptr, bool owner)
 
 <%= cname %>* toC(<%= full_name %>* ptr, bool owner)
 {
-    return const_cast<<%= cname %>*>(toC(static_cast<const <%= full_name %>*>(ptr,owner)));
+    return const_cast<<%= cname %>*>(toC(static_cast<const <%= full_name %>*>(ptr),owner));
 }
 
 // converts const <%= cname %> to const <%= full_name %>
