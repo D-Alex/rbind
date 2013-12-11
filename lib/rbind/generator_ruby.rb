@@ -181,28 +181,22 @@ module Rbind
                         n = $1
                         if n =~ /\(\)/
                             raise "forbbiden method name #{name}"
-                        elsif not n=~ /([\w\d]|[^\W\D])/
-                            # consider number suffix for operations
-                            # TODO: why actually does that need consideration?
-                            n =~ /(.*)(\d)?/
-                            # non word and not digit, but also not word
-                            # nor digit ->> special characters appended
-                            if n == "=="
-                                # that one can stay also in ruby
-                                n
-                            else
-                                alias_name = RNamespace.default_operator_alias[$1]
+                        elsif n =~ /(.*)(\d)/ # check for overloaded operators and use alias name for them
+                            alias_name = RNamespace.default_operator_alias[$1]
+                            if not alias_name
+                                raise ArgumentError, "Normalization failed. Operator: #{$1} unknown"
+                            end
+                            "#{alias_name}_operator#{$2}"
+                        else
+                            # this operators does not exist
+                            if n == "++" || n == "--"
+                                alias_name = RNamespace.default_operator_alias[n]
                                 if not alias_name
                                     raise ArgumentError, "Normalization failed. Operator: #{$1} unknown"
                                 end
-                                "#{alias_name}_operator#{$2}"
-                            end
-                        else
-                            if n == "++"
-                                "plusplus_operator#{$2}"
-                            elsif n == "--"
-                                "minusminus_operator#{$2}"
+                                "#{alias_name}_operator"
                             else
+                                # we can use the c++ name
                                 n
                             end
                         end
