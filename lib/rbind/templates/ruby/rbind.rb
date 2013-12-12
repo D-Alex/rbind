@@ -1,6 +1,4 @@
 require 'ffi'
-require 'utilrb'
-
 require File.join(File.dirname(__FILE__),'<%= file_prefix %>_types.rb')
 <%= required_module_names %>
 
@@ -11,10 +9,13 @@ module <%= name %>
         extend FFI::Library
 
         #load library <%= library_name %>
-
-        pkg = Utilrb::PkgConfig.new("<%= library_name %>")
-        path = Dir.glob(File.join(pkg.libdir, "lib<%= library_name %>.*")).first
-        path = File.absolute_path(path)
+        path = File.join(File.dirname(__FILE__),"..")
+        path = if Dir.exist?(path)
+                   Dir.chdir(path) do
+                       path = Dir.glob("lib<%= library_name %>.*").first
+                       File.absolute_path(path) if path
+                   end
+               end
         ffi_lib ["<%= library_name %>", path]
 
         # @!group Enums
