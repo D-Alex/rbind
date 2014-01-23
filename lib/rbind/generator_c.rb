@@ -286,7 +286,7 @@ module Rbind
 
            def libs
                str = @root.map do |pkg|
-                   "${#{pkg.upcase}_LIBS} ${#{pkg.upcase}_LDFLAGS}"
+                   "${#{pkg.upcase}_LIBS} ${#{pkg.upcase}_LDFLAGS_OTHER}"
                end.join(" ")
                str += " " + @libs.join(" ")
            end
