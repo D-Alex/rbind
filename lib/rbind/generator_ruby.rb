@@ -65,6 +65,14 @@ module Rbind
                           parameter.default_value.gsub("f","")
                       elsif parameter.type.name == "double"
                           parameter.default_value.gsub(/\.$/,".0").gsub(/^\./,"0.")
+                      elsif parameter.type.ptr? &&(parameter.default_value == "0" || parameter.default_value = "NULL")
+                          # NULL pointer
+                          t = parameter.type.to_raw
+                          if t.extern_package_name
+                              "::#{t.extern_package_name}::#{normalize_type_name(t.full_name)}::null"
+                          else
+                              "#{normalize_type_name(t.full_name)}::null"
+                          end
                       else
                           normalize_type_name(parameter.default_value)
                       end
@@ -97,7 +105,7 @@ module Rbind
                                       "#{normalize_method_name(ops.first.name)}(#{(value)})"
                                   end
                               elsif t
-                                  t = t.to_ptr if parameter.type.ptr?
+                                  t = t.to_raw
                                   if t.extern_package_name
                                       "::#{t.extern_package_name}::#{normalize_type_name(t.full_name)}.new(#{(value)})"
                                   else

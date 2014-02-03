@@ -29,6 +29,11 @@ class <%= name %>
         <%= name %>Struct
     end
 
+    # returns a null pointer to the object
+    def self.null
+        new(<%= name %>Struct.new)
+    end
+
 <%= add_constructor_doc -%>
     def self.new(*args)
         if args.first.is_a?(FFI::Pointer) || args.first.is_a?(<%= name %>Struct)
@@ -93,6 +98,13 @@ class <%= name %>
     # the real object
     def __owner__?
         @__obj_ptr__[:bowner]
+    end
+
+    # @private
+    # raises if the underlying pointer is a null pointer
+    # the real object
+    def __validate_pointer__
+        raise "NullPointer" if @__obj_ptr__.null? || @__obj_ptr__[:obj_ptr].address == 0
     end
 
     # converts <%= name %> into a string by crawling through all its attributes

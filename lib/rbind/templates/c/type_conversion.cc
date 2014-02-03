@@ -19,6 +19,10 @@ const <%= cname %>* toC(const <%= full_name %>* ptr, bool owner)
 // converts const <%= cname %> to const <%= full_name %>
 const <%= full_name %>* fromC(const <%= cname %>* ptr)
 {
+    if(ptr == NULL)
+        throw std::runtime_error("<%= full_name %>: Null Pointer!");
+    if(!ptr->obj_ptr)
+        return NULL;
     <%- if check_type? -%>
     // check typeid if available
     if(ptr->type_id && typeid(<%= full_name %>) != *static_cast<const std::type_info*>(ptr->type_id))
@@ -34,14 +38,14 @@ const <%= full_name %>* fromC(const <%= cname %>* ptr)
     // check size
     if(ptr->size && sizeof(<%= full_name %>) > ptr->size)
         throw std::runtime_error("wrong object size for <%= full_name %>.");
-    if(!ptr->obj_ptr)
-        throw std::runtime_error("object for <%= full_name %> was deleted!");
     return static_cast<const <%= full_name %>*>(ptr->obj_ptr);
 }
 
 // converts <%= cname %>* to <%= full_name %>*
 <%= full_name %>* fromC(<%= cname %>* ptr)
 {
+    if(ptr == NULL)
+        return NULL;
     return const_cast<<%= full_name %>*>(fromC(static_cast<const <%= cname %>*>(ptr)));
 }
 
