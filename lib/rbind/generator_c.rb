@@ -191,12 +191,12 @@ module Rbind
                              end
                          else
                              fct = if !constructor? && (return_type.name != "void" || return_type.ptr?)
+                                       # operator+, operator++ etc
                                        if operator? && parameters.size == 1
                                            if return_type.basic_type?
                                                "return *rbind_obj_ #{operator} #{paras};"
                                            elsif return_type.ref?
-                                               # the returned value is not the owner of the
-                                               # object
+                                               # the returned value is not the owner of the object
                                                "return toC(&(*rbind_obj_ #{operator} #{paras}),false);"
                                            else
                                                "return toC(new #{return_type.full_name}(*rbind_obj_ #{operator} #{paras}));"
@@ -204,10 +204,9 @@ module Rbind
                                        elsif return_type.basic_type?
                                            "return #{full_name}(#{paras});"
                                        elsif return_type.ptr?
-                                           "return toC(#{full_name}(#{paras}));"
+                                           "return toC(#{full_name}(#{paras}),#{return_type.ownership?});"
                                        elsif return_type.ref?
-                                           # the returned value is not the owner of the
-                                           # object
+                                           # the returned value is never owner of the memory
                                            "return toC(&#{full_name}(#{paras}),false);"
                                        else
                                            "return toC(new #{return_type.full_name}(#{full_name}(#{paras})));"

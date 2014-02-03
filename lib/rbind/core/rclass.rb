@@ -13,6 +13,9 @@ module Rbind
                 add_parent(p)
             end
             super(name)
+            # we have to disable the type check for classes
+            # otherwise derived types cannot be parsed
+            @check_type = false
         end
 
         def basic_type?
@@ -195,9 +198,6 @@ module Rbind
             if klass.full_name == full_name || klass == self
                 raise ArgumentError,"class #{klass.full_name} cannot be parent of its self"
             end
-            # we have to disable the type check for the parent class
-            # otherwise derived types cannot be parsed
-            klass.check_type = false
             @parent_classes[klass.name] = ParentClass.new(klass,accessor)
             self
         end

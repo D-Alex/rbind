@@ -1,7 +1,6 @@
 
 module Rbind
     class RDataType < RBase
-        attr_accessor :ptr,:ref
         attr_accessor :typedef
         attr_accessor :invalid_value
         attr_accessor :cdelete_method
@@ -65,25 +64,48 @@ module Rbind
         end
 
         def to_single_ptr
-            t = to_raw
-            t = t.to_const if const?
-            t.to_ptr
+            self.to_ptr
         end
 
         def to_ptr
-            RPointer.new(self)
+            RTypeAnnotation.new(self,:ptr => 1)
         end
 
         def to_ref
-            RReference.new(self)
+            RTypeAnnotation.new(self,:ref => true)
         end
 
         def to_const
-            RTypeQualifier.new(self,:const => true)
+            RTypeAnnotation.new(self,:const => true)
+        end
+
+        def to_ownership(val)
+            raise "Cannot set memory owner for none pointer types!"
         end
 
         def remove_const
             self
+        end
+
+        def remove_ownership
+            self
+        end
+
+        def remove_ref
+            self
+        end
+
+        def remove_ptr
+            self
+        end
+
+        # returns true if the type is owner of its memory
+        def ownership?
+            if ref?
+                false
+            else
+                true
+            end
         end
 
         def raw?
