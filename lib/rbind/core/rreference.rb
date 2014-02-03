@@ -21,7 +21,7 @@ module Rbind
         end
 
         def to_ptr
-            RPointer.new(self)
+            __getobj__
         end
 
         def to_ref

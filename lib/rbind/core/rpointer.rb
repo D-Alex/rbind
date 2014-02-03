@@ -45,7 +45,7 @@ module Rbind
         end
 
         def to_ref
-            RReference.new(self)
+            __getobj__
         end
 
         def to_const
