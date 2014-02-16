@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
     s.name              = 'rbind'
-    s.version           = '0.0.22'
-    s.date              = '2013-10-29'
+    s.version           = '0.0.24'
+    s.date              = '2014-02-16'
     s.platform          = Gem::Platform::RUBY
     s.authors           = ['Alexander Duda']
     s.email             = ['Alexander.Duda@dfki.de']
