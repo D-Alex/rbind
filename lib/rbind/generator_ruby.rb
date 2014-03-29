@@ -62,7 +62,7 @@ module Rbind
                       if ruby_default_value_map.has_key?(parameter.default_value)
                           ruby_default_value_map[parameter.default_value]
                       elsif parameter.type.name == "float"
-                          parameter.default_value.gsub("f","")
+                          parameter.default_value.gsub("f","").gsub(/\.$/,".0").gsub(/^\./,"0.")
                       elsif parameter.type.name == "double"
                           parameter.default_value.gsub(/\.$/,".0").gsub(/^\./,"0.")
                       elsif parameter.type.ptr? &&(parameter.default_value == "0" || parameter.default_value = "NULL")
