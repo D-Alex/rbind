@@ -14,7 +14,8 @@ module Rbind
             attr_accessor :ffi_type_map
         end
         self.ruby_default_value_map ||= {"true" => "true","TRUE" => "true", "false" => "false","FALSE" => "false"}
-        self.ffi_type_map ||= {"char *" => "string","unsigned char" => "uchar" ,"const char *" => "string","uint8_t" => "uint8" }
+        self.ffi_type_map ||= {"char *" => "string","unsigned char" => "uchar" ,"const char *" => "string","uint8_t" => "uint8",
+                               "uint32_t" => "uint32","uint64_t" => "uint64","int8_t" => "int8","int32_t" => "int32","int64_t" => "int64" }
 
 
         def self.keyword?(name)
