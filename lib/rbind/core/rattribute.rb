@@ -11,7 +11,11 @@ module Rbind
         end
 
         def ==(other)
-            type == other.type
+            if other
+                type == other.type
+            else
+                false
+            end
         end
 
         def generate_signatures
