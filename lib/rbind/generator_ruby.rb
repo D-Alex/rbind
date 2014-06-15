@@ -707,7 +707,7 @@ module Rbind
                         else
                             ops["rbind_static_#{op.name}"] << op
                         end
-                    rescue Exception => e
+                    rescue => e
                         HelperBase.log.warn "Operation '#{o}' not added. #{e}"
                     end
                 end
@@ -730,8 +730,9 @@ module Rbind
                                        @overloaded_static_method_wrapper.result(helper.binding)
                                    end
                         end
-                    rescue Exception => e
-                        HelperBase.log.warn "Operation '#{o}' could not be rendered. #{e}"
+                    rescue => e
+                        pp e
+                        HelperBase.log.error "Operation '#{o}' could not be rendered. #{e}"
                     end
                 end
                 return str unless @compact_namespace

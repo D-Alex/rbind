@@ -41,7 +41,7 @@ module Clang
         # class Clang is taking care of this
         def self.release(pointer)
             Rbind::dispose_translation_unit(pointer) unless pointer.null?
-        rescue Exception => e
+        rescue => e
             puts e
         end
     end
@@ -268,7 +268,7 @@ module Clang
             def self.finalize(id)
                 Rbind::dispose_string(@@pointer[id])
                 @@pointer.delete(id)
-            rescue Exception => e
+            rescue => e
                 puts e
             end
 

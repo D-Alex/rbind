@@ -73,7 +73,7 @@ module Rbind
                         end
 
                         klass.add_operation(op)
-                    rescue Exception => e
+                    rescue => e
                         RTemplateClass.log.warn "RTemplateClass: #{name} could not add parameter #{e} #{e.backtrace}"
 
                     end

@@ -9,7 +9,7 @@ class <%= name %>Struct < FFI::Struct
     # auto delete
     def self.release(pointer)
         Rbind::<%= cdelete_method %>_struct(pointer) unless pointer.null?
-    rescue Exception => e
+    rescue => e
         puts e
     end
 end

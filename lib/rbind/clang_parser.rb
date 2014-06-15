@@ -32,7 +32,7 @@ module Rbind
                 pos_start = [location[2]-pos_width,0].max
                 con << "   \t " + " "*pos_start + "."*pos_width
                 "#{super}\n\n#{"#"*5}\nParsed File: #{location.join(":")}\n#{con.join()}\n#{"#"*5}\n\n"
-            rescue Exception => e
+            rescue => e
                 pp e
             end
         end
@@ -227,7 +227,7 @@ module Rbind
                                else
                                    #puts "skip: #{cu.spelling}"
                                end
-                    rescue Exception => e
+                    rescue => e
                         ClangParser.log.debug "Parsing failed -- skipping"
                     end
                     raise ClangParserError.new("jjj",cu) if last_obj.is_a? Fixnum
