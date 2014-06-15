@@ -566,6 +566,10 @@ module Rbind
                     @overload_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","ruby","roverloaded_method_call.rb")).read,nil,"-")
                 end
 
+                def static?
+                    @root.first.static?
+                end
+
                 def add_methods
                     str = @root.map do |method|
                         next if method.ignore?
