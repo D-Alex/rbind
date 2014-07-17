@@ -164,6 +164,7 @@ module Rbind
                             t2.add_parent p
                         end
                         t2.extern_package_name = t.extern_package_name
+                        t2
                     end
                 else
                     t.name = t.name.gsub(">>","> >")
