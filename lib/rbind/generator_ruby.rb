@@ -467,7 +467,7 @@ module Rbind
 
                 def wrap_parameters_signature
                     parameters.map do |p|
-                        n = GeneratorRuby.normalize_arg_name p.name
+                        n = GeneratorRuby.normalize_arg_name p.full_name
                         if p.default_value 
                             "#{n} = #{GeneratorRuby.normalize_default_value p}"
                         else
