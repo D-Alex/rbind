@@ -135,13 +135,17 @@ module Rbind
                                  parent_classes.gsub(" ","").split(",").map do |name|
                                      #TODO this should also call the user callback
                                      t = type(RBase.normalize(name),false)
-                                     # remove first namespace and try again 
+                                     # remove namespace and try again
                                      # this is workaround for the hdr_parser adding 
                                      # always the namespace to the parent class
                                      t ||= begin
-                                               names = RBase.normalize(name).split("::")
-                                               names.shift
-                                               type(names.join("::"),false) if !names.empty?
+                                               names = name
+                                               while((names=RBase.normalize(names).split("::")).size > 1)
+                                                     names.shift
+                                                     names = names.join("::")
+                                                     t = type(names,false)
+                                                     break t if t
+                                               end
                                            end
                                      # auto add parent class
                                      t ||= begin
