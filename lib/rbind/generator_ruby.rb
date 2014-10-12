@@ -170,7 +170,7 @@ module Rbind
                 n.gsub(/^(\w)(.*)/) do 
                     $1.upcase+$2
                 end
-            end.join("")
+            end.join("_")
         end
 
         def self.normalize_basic_type_name_ffi(name)
