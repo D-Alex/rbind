@@ -8,5 +8,5 @@ typedef struct <%= cname %>
     bool bowner;            // true if struct is the owner of the object
 }<%= cname %>;
 
-void <%= cdelete_method %>(<%= cname %> *ptr);
+RBIND_EXPORTS void <%= cdelete_method %>(<%= cname %> *ptr);
 

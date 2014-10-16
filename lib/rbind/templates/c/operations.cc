@@ -1,6 +1,6 @@
 
 #include "conversions.hpp"
-#include "operations.h" 
+#include "operations.h"
 <%= wrap_includes %>
 
 char last_error_message[255] = {0};

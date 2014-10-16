@@ -153,7 +153,7 @@ module Rbind
                @root.each_container do |type|
                    str2 = ""
                    type.each_operation do |op|
-                       str2 += "#{op.csignature};\n"
+                       str2 += "RBIND_EXPORTS #{op.csignature};\n"
                    end
                    if !str2.empty?
                        str += "\n\n///methods for #{type.full_name}\n"
