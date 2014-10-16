@@ -1,4 +1,10 @@
-require 'ffi'
+begin
+    require 'ffi'
+rescue LoadError
+    STDERR.puts "Cannot require 'ffi'"
+    STDERR.puts "You can install ffi via 'gem install ffi'"
+    exit 1
+end
 require File.join(File.dirname(__FILE__),'<%= file_prefix %>_types.rb')
 <%= required_module_names %>
 
