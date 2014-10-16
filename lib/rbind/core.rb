@@ -1,5 +1,5 @@
-require 'hooks'
 require 'rbind/logger.rb'
+require 'rbind/core/hooks.rb'
 require 'rbind/core/rbase.rb'
 require 'rbind/core/rdata_type.rb'
 require 'rbind/core/renum.rb'
