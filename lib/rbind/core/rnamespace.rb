@@ -203,6 +203,20 @@ module Rbind
             end
         end
 
+        def used_extern_types
+            extern = Set.new
+            each_operation do |op|
+                extern << op.return_type.to_raw if op.return_type && op.return_type.extern?
+                op.parameters.each do |arg|
+                    extern << arg.type.to_raw if arg.type.extern?
+                end
+            end
+            each_container do |type|
+                extern += type.used_extern_types
+            end
+            extern
+        end
+
         def operations
             @operations.values
         end
@@ -341,6 +355,10 @@ module Rbind
             type
         end
 
+        def type?(name,search_owner = true)
+            !type(name,false,search_owner).nil?
+        end
+
         def type(name,raise_ = true,search_owner = true)
             name = name.to_s
             constant = if name =~ /const /
@@ -428,8 +446,8 @@ module Rbind
                       end
                     end
             if !t && raise_
-                if self.class.callbacks_for_hook(:on_type_not_found)
-                    results = self.run_hook(:on_type_not_found,self,name)
+                if RNamespace.callbacks_for_hook(:on_type_not_found)
+                    results = RNamespace.run_hook(:on_type_not_found,self,name)
                     t = results.find do |t|
                         t.respond_to?(:type)
                     end

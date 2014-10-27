@@ -61,7 +61,7 @@ module Rbind
             end
         end
 
-        def find_type(owner,type_name)
+        def find_type(owner,type_name,braise=true)
             type_name = unmask_template(type_name)
             t = owner.type(type_name,false)
             return t if t
@@ -81,7 +81,7 @@ module Rbind
             return t if t
 
             #search again even if we know the type is not there to create a proper error message
-            owner.type(type_name,true)
+            owner.type(type_name,true) if braise
         end
 
         def parameter(line_number,string,owner = self)
@@ -113,7 +113,13 @@ module Rbind
             array = flags.shift.split(" ")
             type_name = array[0]
             name = array[1]
-            type = find_type(owner,type_name)
+            type = find_type(owner,type_name,false)
+            # auto embedded types
+            type ||= begin
+                         t = owner.add_type(RClass.new(RBase.normalize(type_name)))
+                         t.extern_package_name = @extern_package_name
+                         t
+                     end
             flags = normalize_flags(line_number,flags,:RW,:R)
             a = RAttribute.new(name,type)
             a.writeable!(true) if flags.include? :RW
@@ -156,25 +162,11 @@ module Rbind
                                  end
                              end
             flags = if flags
-                       normalize_flags(line_number,flags.gsub(" ","").split("/").compact,:Simple)
+                       normalize_flags(line_number,flags.gsub(" ","").split("/").compact,:Simple,:Map)
                     end
             t = RClass.new(name,*parent_classes)
             t.extern_package_name = @extern_package_name
-            t = if t2 = type(t.full_name,false)
-                    if !t2.is_a?(RClass) || (!t2.parent_classes.empty? && t2.parent_classes != t.parent_classes)
-                        raise "Cannot add class #{t.full_name}. A different type #{t2} is already registered"
-                    else
-                        t.parent_classes.each do |p|
-                            t2.add_parent p
-                        end
-                        t2.extern_package_name = t.extern_package_name
-                        t2
-                    end
-                else
-                    t.name = t.name.gsub(">>","> >")
-                    add_type(t)
-                    t
-                end
+            t = add_type(t)
             line_counter = 1
             lines.each do |line|
                 a = attribute(line_counter+line_number,line,t)
@@ -186,6 +178,24 @@ module Rbind
             raise "input line #{line_number}: #{e}"
         end
 
+        def add_type(klass)
+            if klass2 = type(klass.full_name,false)
+                if !klass2.is_a?(RClass) || (!klass2.parent_classes.empty? && klass2.parent_classes != klass.parent_classes)
+                    raise "Cannot add class #{klass.full_name}. A different type #{klass2} is already registered"
+                else
+                    klass.parent_classes.each do |p|
+                        klass2.add_parent p
+                    end
+                    klass2.extern_package_name = klass.extern_package_name
+                    klass2
+                end
+            else
+                klass.name = klass.name.gsub(">>","> >")
+                super(klass)
+                klass
+            end
+        end
+
         def parse_struct(line_number,string)
             a = string.split("\n")
             first_line = a.shift
@@ -193,7 +203,7 @@ module Rbind
             name = flags.shift.split(" ")[1]
             flags = normalize_flags(line_number,flags)
             klass = RClass.new(name)
-            add_type(klass)
+            klass = add_type(klass)
             line_counter = 1
             a.each do |line|
                 a = attribute(line_counter+line_number,line,klass)
@@ -280,7 +290,9 @@ module Rbind
             @extern_package_name = extern_package_name
 
             a = split(string)
-            a.pop #remove number at the end of the file
+            #remove number at the end of the file
+            a.pop if a.last.to_i != 0
+
             line_number = 1
             a.each do |block|
                 begin
@@ -305,15 +317,20 @@ module Rbind
                     break
                 end
             end
+            a.size
         end
 
         def split(string)
             array = []
-            string.each_line do |line|
-                if !line.empty? && line[0] != " "
-                    array << line
-                else
-                    array[array.size-1] = array.last + line
+            if string
+                string.each_line do |line|
+                    if line == "\n" || line.empty?
+                       next
+                    elsif line[0] != " "
+                        array << line
+                    elsif !array.empty?
+                        array[array.size-1] = array.last + line
+                    end
                 end
             end
             array

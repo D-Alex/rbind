@@ -2,11 +2,13 @@ require 'yaml'
 
 module Rbind
     class GeneratorExtern
-        Config = Struct.new(:ruby_module_name,:file_prefix)
+        Config = Struct.new(:ruby_module_name,:file_prefix,:cpath)
 
         attr_accessor :output_path
         attr_accessor :ruby_module_name
         attr_accessor :file_prefix
+        attr_accessor :cpath
+
         def self.normalize_type_name(name)
             name.gsub('::','.').gsub(" ","")
         end
@@ -19,10 +21,11 @@ module Rbind
             @root = root
         end
 
-        def generate(path = @output_path,ruby_module_name = @ruby_module_name,file_prefix = @file_prefix)
+        def generate(path = @output_path,ruby_module_name = @ruby_module_name,file_prefix = @file_prefix,cpath=@cpath)
             @output_path = path
             @ruby_module_name = ruby_module_name
             @file_prefix = file_prefix
+            @cpath = File.expand_path(cpath)
             FileUtils.mkdir_p(path) if path && !File.directory?(path)
             file_extern = File.new(File.join(path,"extern.rbind"),"w")
             file_config = File.new(File.join(path,"config.rbind"),"w")
@@ -56,7 +59,7 @@ module Rbind
             end
 
             file_extern.write("\n")
-            file_config.write Config.new(ruby_module_name,file_prefix).to_yaml
+            file_config.write Config.new(ruby_module_name,file_prefix,@cpath).to_yaml
         end
     end
 end

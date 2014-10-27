@@ -31,10 +31,11 @@ module Rbind
        end
 
        class TypesHelperHDR < HelperBase
-           def initialize(name, root)
+           def initialize(name, root,extern_types)
                raise "wrong type #{root}" unless root.is_a? RDataType
-               super
+               super(name,root)
                @type_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","type_wrapper.h")).read,nil,"-")
+               @extern_types = extern_types
            end
 
            def cdelete_method
@@ -47,6 +48,10 @@ module Rbind
 
            def wrap_types
                str = ""
+               @extern_types.each do |type|
+                   next if type.basic_type?
+                   str += type_wrapper(type)
+               end
                @root.each_type do |type|
                    next if type.basic_type?
                    str += type_wrapper(type)
@@ -56,8 +61,9 @@ module Rbind
        end
 
        class TypesHelper < HelperBase
-           def initialize(name, root)
-               super
+           def initialize(name, root,extern_types)
+               super(name,root)
+               @extern_types = extern_types
                @type_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","type_delete.h")).read)
            end
 
@@ -71,6 +77,10 @@ module Rbind
 
            def wrap_types
                str = ""
+               @extern_types.each do |type|
+                   next if type.basic_type?
+                   str += type_wrapper(type)
+               end
                @root.each_type do |type|
                    next if type.basic_type?
                    str += type_wrapper(type)
@@ -98,8 +108,9 @@ module Rbind
        end
 
        class ConversionsHelperHDR < HelperBase
-           def initialize(name,root)
-               super
+           def initialize(name,root,extern_types)
+               super(name,root)
+               @extern_types = extern_types
                @type_conversion = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","type_conversion.hpp")).read,nil,'-')
                @type_typedef = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","type_typedef.h")).read)
            end
@@ -114,6 +125,11 @@ module Rbind
 
            def wrap_conversions
                str = ""
+               @extern_types.each do |type|
+                   str += type_typedef(type) if type.typedef?
+                   next if type.basic_type?
+                   str += type_conversion(type)
+               end
                @root.each_type do |type|
                    str += type_typedef(type) if type.typedef?
                    next if type.basic_type?
@@ -124,9 +140,10 @@ module Rbind
        end
 
        class ConversionsHelper < HelperBase
-           def initialize(name,root)
-               super
+           def initialize(name,root,extern_types)
+               super(name,root)
                @type_conversion = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","type_conversion.cc")).read,nil,'-')
+               @extern_types = extern_types
            end
 
            def type_conversion(t)
@@ -135,6 +152,10 @@ module Rbind
 
            def wrap_conversions
                str = ""
+               @extern_types.each do |type|
+                   next if type.basic_type?
+                   str += type_conversion(type)
+               end
                @root.each_type do |type|
                    next if type.basic_type?
                    str += type_conversion(type)
@@ -265,22 +286,22 @@ module Rbind
        end
 
        class CMakeListsHelper < HelperBase
-           def initialize(name,pkg_config=Array.new,libs=Array.new,gems=Array.new)
+           def initialize(name,lib_name,pkg_config=Array.new,libs=Array.new,ruby_path)
                super(name,pkg_config)
                @libs = libs
-               @gems = gems
-               @find_gem = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","find_gem.txt")).read)
+               @library_name = lib_name
                @find_package = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","find_package.txt")).read)
+               @ruby_path = ruby_path
+           end
+
+           def ruby_path
+               @ruby_path
            end
 
            def find_packages
                @root.map do |pkg|
                     @find_package.result(pkg.instance_eval("binding"))
                end.join("")
-           end
-
-           def find_gems
-               @find_gem.result(@gems.instance_eval("binding")) unless @gems.empty?
            end
 
            def libs
@@ -291,7 +312,7 @@ module Rbind
            end
 
            def library_name
-               name
+               @library_name
            end
        end
 
@@ -299,11 +320,11 @@ module Rbind
        attr_accessor :library_name
        attr_accessor :libs
        attr_accessor :pkg_config
-       attr_accessor :gems
        attr_accessor :generate_cmake
        attr_accessor :output_path
+       attr_accessor :ruby_path
 
-       def initialize(root,library_name)
+       def initialize(root,name,library_name)
            raise "wrong type #{root}" unless root.is_a? RNamespace
            @root = root
            @erb_types_hdr = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","types.h")).read)
@@ -315,17 +336,17 @@ module Rbind
            @erb_conversions_hdr = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","conversions.hpp")).read)
            @erb_cmakelists = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","CMakeLists.txt")).read)
            @erb_find_package = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","find_package.txt")).read)
-           @erb_pkg_config = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","rbind.pc.in")).read)
            @includes = Array.new
            @pkg_config= Array.new
-           @gems = Array.new
            @library_name = library_name
+           @name = name
            @generate_cmake = true
            @libs = []
        end
 
-       def generate(path = @output_path)
+       def generate(path = @output_path,ruby_path = @ruby_path)
            @output_path = path
+           @ruby_path = ruby_path
            FileUtils.mkdir_p(path) if path && !File.directory?(path)
            file_types_hdr = File.new(File.join(path,"types.h"),"w")
            file_types = File.new(File.join(path,"types.cc"),"w")
@@ -334,43 +355,24 @@ module Rbind
            file_operations_hdr = File.new(File.join(path,"operations.h"),"w")
            file_conversions = File.new(File.join(path,"conversions.cc"),"w")
            file_conversions_hdr = File.new(File.join(path,"conversions.hpp"),"w")
-           rbind_pkgs = Rbind.rbind_pkgs(@pkg_config)
-           gem_paths = @gems.map do |gem|
-               Rbind.gem_path(gem)
-           end
 
-           types_hdr = TypesHelperHDR.new("_#{library_name.upcase}_TYPES_H_",@root)
-           types_hdr.includes = rbind_pkgs.map do |p|
-               "<#{p}/types.h>"
-           end
-           types_hdr.includes += gem_paths.map do |gem|
-               "<#{gem}/types.h>"
-           end
+           # mark all extern types which must be wrapped
+           extern_types = @root.used_extern_types
+
+           types_hdr = TypesHelperHDR.new("_#{library_name.upcase}_TYPES_H_",@root,extern_types)
            file_types_hdr.write @erb_types_hdr.result(types_hdr.binding)
 
-           types = TypesHelper.new("types",@root)
+           types = TypesHelper.new("types",@root,extern_types)
            file_types.write @erb_types.result(types.binding)
 
            consts = ConstsHelper.new("_#{library_name.upcase}_CONSTS_H_",@root)
-           consts.includes = rbind_pkgs.map do |p|
-               "<#{p}/constants.h>"
-           end
-           consts.includes += gem_paths.map do |gem|
-               "<#{gem}/constants.h>"
-           end
            file_consts.write @erb_consts.result(consts.binding)
 
-           conversions_hdr = ConversionsHelperHDR.new("#{library_name.upcase}_CONVERSIONS_H_",@root)
-           conversions_hdr.includes = rbind_pkgs.map do |p|
-               "<#{p}/conversions.hpp>"
-           end
+           conversions_hdr = ConversionsHelperHDR.new("#{library_name.upcase}_CONVERSIONS_H_",@root,extern_types)
            conversions_hdr.includes += includes
-           conversions_hdr.includes += gem_paths.map do |gem|
-               "<#{gem}/conversions.hpp>"
-           end
            file_conversions_hdr.write @erb_conversions_hdr.result(conversions_hdr.binding)
 
-           conversions = ConversionsHelper.new("conversions",@root)
+           conversions = ConversionsHelper.new("conversions",@root,extern_types)
            file_conversions.write @erb_conversions.result(conversions.binding)
 
            operations_hdr = OperationsHDRHelper.new("_#{library_name.upcase}_OPERATIONS_H_",@root)
@@ -381,17 +383,11 @@ module Rbind
 
            if generate_cmake && !File.exist?(File.join(path,"CMakeLists.txt"))
                file_cmakelists = File.new(File.join(path,"CMakeLists.txt"),"w")
-               cmakelists = CMakeListsHelper.new(@library_name,@pkg_config,@libs,@gems)
+               cmakelists = CMakeListsHelper.new(@name,@library_name,@pkg_config,@libs,@ruby_path)
                file_cmakelists.write @erb_cmakelists.result(cmakelists.binding)
-               if !File.exist?(File.join(path,"rbind.pc.in"))
-                   file_pkg_config = File.new(File.join(path,"rbind.pc.in"),"w")
-                   file_pkg_config.write @erb_pkg_config.result(Kernel.binding)
-               end
-
                src_path = File.join(File.dirname(__FILE__),"templates","c","cmake")
                cmake_path = File.join(path,"cmake")
                FileUtils.mkdir_p(cmake_path) if !File.directory?(cmake_path)
-               FileUtils.copy(File.join(src_path,"FindGem.cmake"),File.join(cmake_path,"FindGem.cmake"))
                FileUtils.copy(File.join(src_path,"FindRuby.cmake"),File.join(cmake_path,"FindRuby.cmake"))
            end
        end

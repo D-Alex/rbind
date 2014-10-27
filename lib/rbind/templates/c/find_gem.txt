@@ -1,3 +1,0 @@
-find_package(Gem COMPONENTS REQUIRED <%= self.join(" ") %>)
-include_directories(${GEM_INCLUDE_DIRS})
-

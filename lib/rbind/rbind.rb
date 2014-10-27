@@ -8,7 +8,7 @@ module Rbind
         attr_accessor :includes
         attr_accessor :name
         attr_accessor :pkg_config
-        attr_accessor :gems
+        attr_accessor :rbind_pkgs    # extern rbind pkgs
 
         def self.pkg_paths(pkg_name)
             out = IO.popen("pkg-config --cflags-only-I #{pkg_name}")
@@ -19,41 +19,21 @@ module Rbind
             paths
         end
 
-        def self.rbind_pkgs(pkg_names)
-            pkg_names.find_all do |p|
-                !!(p =~ /^rbind_.*/)
-            end
-        end
-
-        def self.gem_path(gem_name)
-            # TODO use gem api
-            out = IO.popen("gem contents #{gem_name}")
-            out.readlines.each do |line|
-                return $1 if line =~ /(.*)extern.rbind/
-            end
-            raise "Cannot find paths for gem #{gem_name}"
-        end
-
-        def self.rbind_pkg_paths(pkg_names)
-            rbind_packages = rbind_pkgs(pkg_names)
-            rbind_paths = rbind_packages.map do |pkg|
-                paths = pkg_paths(pkg)
-                path = paths.find do |p|
-                    File.exist?(File.join(p,pkg,"extern.rbind"))
-                end
-                raise "cannot find extern.rbind for rbind package #{pkg}" unless path
-                File.join(path,pkg)
-            end
+        def self.rbind_pkg_path(name)
+            files = Gem.find_files("#{name}/rbind/extern.rbind")
+            raise "Cannot find paths for rbind package #{name}" if files.empty?
+            File.dirname(files.first)
         end
 
         def initialize(name,parser = DefaultParser.new)
-            @name = name
+            @name = GeneratorRuby.name
             @includes = []
             @pkg_config = []
-            @gems = []
+            @rbind_pkgs= []
             @parser = parser
+
             lib_name = "rbind_#{name.downcase}"
-            @generator_c = GeneratorC.new(@parser,lib_name)
+            @generator_c = GeneratorC.new(@parser,name,lib_name)
             @generator_ruby = GeneratorRuby.new(@parser,name,lib_name)
             @generator_extern = GeneratorExtern.new(@parser)
         end
@@ -90,19 +70,11 @@ module Rbind
         def parse_extern
             # extern package are always paresed with the default parser 
             local_parser = DefaultParser.new(parser)
-            paths = Rbind.rbind_pkg_paths(@pkg_config)
-            paths.each do |pkg|
-                config = YAML.load(File.open(File.join(pkg,"config.rbind")).read)
-                path = File.join(pkg,"extern.rbind")
-                ::Rbind.log.info "parsing extern rbind pkg file #{path}"
-                raise "no module name found" if !config.ruby_module_name || config.ruby_module_name.empty?
-                local_parser.parse(File.open(path).read,config.ruby_module_name)
-            end
-            @gems.each do |gem|
-                path = Rbind.gem_path(gem)
+            @rbind_pkgs.each do |pkg|
+                path = Rbind.rbind_pkg_path(pkg)
                 config = YAML.load(File.open(File.join(path,"config.rbind")).read)
                 path = File.join(path,"extern.rbind")
-                ::Rbind.log.info "parsing extern gem file #{path}"
+                ::Rbind.log.info "parsing extern rbind file #{path}"
                 local_parser.parse(File.open(path).read,config.ruby_module_name)
             end
             self
@@ -127,6 +99,10 @@ module Rbind
             parser.parse parse_headers_dry(*headers)
         end
 
+        def parse_header(header)
+            parser.parse parse_headers_dry(header)
+        end
+
         def build
             ::Rbind.log.info "build c wrappers"
             path = File.join(generator_c.output_path,"build")
@@ -146,33 +122,27 @@ module Rbind
         end
 
         def generate(c_path = "src",ruby_path = "ruby/lib/#{name.downcase}")
-            generate_c c_path
-            generate_extern c_path
+            generate_c c_path,ruby_path
+            generate_extern ruby_path,c_path
             generate_ruby ruby_path
         end
 
         def generate_ruby(path)
             ::Rbind.log.info "generate ruby ffi wrappers"
-            paths = Rbind.rbind_pkg_paths(@pkg_config)
-            modules = paths.map do |pkg|
-                config = YAML.load(File.open(File.join(pkg,"config.rbind")).read)
-                config.file_prefix
-            end
-            @generator_ruby.required_module_names = modules + gems
+            @generator_ruby.required_module_names = rbind_pkgs
             @generator_ruby.generate(path)
         end
 
-        def generate_c(path)
+        def generate_c(path,ruby_path)
             ::Rbind.log.info "generate c wrappers"
             @generator_c.includes += includes
             @generator_c.includes.uniq!
             @generator_c.pkg_config = pkg_config
-            @generator_c.gems = gems
-            @generator_c.generate(path)
+            @generator_c.generate(path,ruby_path)
         end
 
-        def generate_extern(path)
-            @generator_extern.generate(path,@generator_ruby.module_name,@generator_ruby.file_prefix)
+        def generate_extern(path,cpath)
+            @generator_extern.generate(File.join(path,"rbind"),@generator_ruby.module_name,@generator_ruby.file_prefix,cpath)
         end
 
         def use_namespace(name)

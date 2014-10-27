@@ -873,7 +873,9 @@ if __name__ == '__main__':
     decls = []
   #  for hname in opencv_hdr_list:
   #      decls += parser.parse(hname)
-    for hname in sys.argv[1:]:
-        decls += parser.parse(hname)
+    if len(sys.argv) > 2:
+        for hname in sys.argv[1:]:
+            decls += parser.parse(hname)
+    else:
+        decls += parser.parse(sys.argv[1])
     parser.print_decls(decls)
-#    print len(decls)
