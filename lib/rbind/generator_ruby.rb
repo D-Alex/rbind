@@ -231,6 +231,8 @@ module Rbind
             name = name.gsub(/##/, '_')
             #replace #xx with _xx
             name = name.gsub(/#([a-zA-Z\d]{2})/, '_\1')
+            #replace #_ with __
+            name = name.gsub(/#_/, '__')
             #remove all remaining #
             name = name.gsub(/#/, '')
             name = normalize_alias_method_name(name)
