@@ -46,6 +46,7 @@ module Rbind
             @root.each_type do |t|
                 if t.is_a? RClass
                     t.each_operation do |op|
+                        next if op.is_a? RCastOperation
                         r = if op.return_type
                                 GeneratorExtern.normalize_type_name(op.return_type.full_name)
                             end
