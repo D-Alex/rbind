@@ -8,11 +8,13 @@ module Rbind
        class HelperBase
            attr_accessor :includes
            attr_accessor :name
+           attr_accessor :extern_types
 
-           def initialize(name,root)
+           def initialize(name,root,extern_types=Hash.new)
                @root = root
                @name = name
                @includes = []
+               @extern_types = extern_types
            end
 
            def wrap_includes
@@ -33,9 +35,8 @@ module Rbind
        class TypesHelperHDR < HelperBase
            def initialize(name, root,extern_types)
                raise "wrong type #{root}" unless root.is_a? RDataType
-               super(name,root)
+               super
                @type_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","type_wrapper.h")).read,nil,"-")
-               @extern_types = extern_types
            end
 
            def cdelete_method
@@ -62,8 +63,7 @@ module Rbind
 
        class TypesHelper < HelperBase
            def initialize(name, root,extern_types)
-               super(name,root)
-               @extern_types = extern_types
+               super
                @type_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","type_delete.h")).read)
            end
 
@@ -109,8 +109,7 @@ module Rbind
 
        class ConversionsHelperHDR < HelperBase
            def initialize(name,root,extern_types)
-               super(name,root)
-               @extern_types = extern_types
+               super
                @type_conversion = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","type_conversion.hpp")).read,nil,'-')
                @type_typedef = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","type_typedef.h")).read)
            end
@@ -141,9 +140,8 @@ module Rbind
 
        class ConversionsHelper < HelperBase
            def initialize(name,root,extern_types)
-               super(name,root)
+               super
                @type_conversion = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","type_conversion.cc")).read,nil,'-')
-               @extern_types = extern_types
            end
 
            def type_conversion(t)
@@ -165,7 +163,7 @@ module Rbind
        end
 
        class OperationsHDRHelper < HelperBase
-           def initialize(name,root)
+           def initialize(name,root,extern_types)
                super
            end
 
@@ -263,7 +261,7 @@ module Rbind
            end
 
 
-           def initialize(name,root)
+           def initialize(name,root,extern_types)
                super
                @operation_wrapper = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","operation_wrapper.cc")).read,nil,"-")
            end
@@ -287,7 +285,7 @@ module Rbind
 
        class CMakeListsHelper < HelperBase
            def initialize(name,lib_name,pkg_config=Array.new,libs=Array.new,ruby_path)
-               super(name,pkg_config)
+               super
                @libs = libs
                @library_name = lib_name
                @find_package = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","find_package.txt")).read)
@@ -375,10 +373,10 @@ module Rbind
            conversions = ConversionsHelper.new("conversions",@root,extern_types)
            file_conversions.write @erb_conversions.result(conversions.binding)
 
-           operations_hdr = OperationsHDRHelper.new("_#{library_name.upcase}_OPERATIONS_H_",@root)
+           operations_hdr = OperationsHDRHelper.new("_#{library_name.upcase}_OPERATIONS_H_",@root,extern_types)
            file_operations_hdr.write @erb_operations_hdr.result(operations_hdr.binding)
 
-           operations = OperationsHelper.new("operations",@root)
+           operations = OperationsHelper.new("operations",@root,extern_types)
            file_operations.write @erb_operations.result(operations.binding)
 
            if generate_cmake && !File.exist?(File.join(path,"CMakeLists.txt"))
