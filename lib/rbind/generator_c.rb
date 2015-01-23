@@ -4,7 +4,6 @@ require 'fileutils'
 
 module Rbind
    class GeneratorC
-
        class HelperBase
            attr_accessor :includes
            attr_accessor :name
@@ -208,6 +207,16 @@ module Rbind
                                      "return toC(&rbind_obj_->#{attribute.name},false);"
                                  end
                              end
+                         elsif __getobj__.is_a?(RCastOperation)
+                             param = if paras.empty?
+                                        "rbind_obj_"
+                                     else
+                                        paras
+                                     end
+                             str = "#{return_type} *__rbind_temp_ = dynamic_cast<#{return_type}*>(#{param});\n"
+                             str += "\tif(!__rbind_temp_)\n"
+                             str += "\t\t throw std::runtime_error(\"Typecast failed, incompatible types\");\n"
+                             str + "\treturn toC(__rbind_temp_,false);"
                          else
                              fct = if !constructor? && (return_type.name != "void" || return_type.ptr?)
                                        # operator+, operator++ etc
@@ -285,7 +294,7 @@ module Rbind
 
        class CMakeListsHelper < HelperBase
            def initialize(name,lib_name,pkg_config=Array.new,libs=Array.new,ruby_path)
-               super
+               super(name,pkg_config)
                @libs = libs
                @library_name = lib_name
                @find_package = ERB.new(File.open(File.join(File.dirname(__FILE__),"templates","c","find_package.txt")).read)

@@ -3,12 +3,12 @@ module Rbind
     class RClass < RNamespace
         attr_reader :parent_classes
         attr_reader :attributes
+        attr_accessor :polymorphic
         ParentClass = Struct.new(:type,:accessor)
         ChildClass = Struct.new(:type,:accessor)
 
         def initialize(name,*parent_classes)
             super(name)
-
             @parent_classes  = Hash.new
             @child_classes  = Hash.new
             @attributes = Hash.new
@@ -19,6 +19,10 @@ module Rbind
             # we have to disable the type check for classes
             # otherwise derived types cannot be parsed
             @check_type = false
+        end
+
+        def polymorphic?
+            !!@polymorphic
         end
 
         def basic_type?
@@ -82,6 +86,10 @@ module Rbind
             # temporarily add all base class operations
             own_ops = @operations.dup
             parent_classes.each do |k|
+                add_operation RCastOperation.new("castTo#{k.name}",k)
+                if k.polymorphic?
+                    add_operation RCastOperation.new("castFrom#{k.name}",self,k)
+                end
                 k.operations.each do |other_ops|
                     next if other_ops.empty?
                     ops = if @operations.has_key?(other_ops.first.name)
@@ -256,6 +264,7 @@ module Rbind
             if klass.full_name == full_name || klass == self
                 raise ArgumentError,"class #{klass.full_name} cannot be child of its self"
             end
+            @polymorphic ||= true
             @child_classes[klass.name] = ChildClass.new(klass,accessor)
             klass.add_parent(self,accessor) unless klass.parent?(self)
             self
