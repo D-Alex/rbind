@@ -62,6 +62,8 @@ module Rbind
             val = if parameter.type.basic_type? || parameter.type.ptr?
                       if ruby_default_value_map.has_key?(parameter.default_value)
                           ruby_default_value_map[parameter.default_value]
+                      elsif parameter.type.is_a? REnum
+                          ":#{parameter.default_value.split("::").last}"
                       elsif parameter.type.name == "float"
                           parameter.default_value.gsub("f","").gsub(/\.$/,".0").gsub(/^\./,"0.")
                       elsif parameter.type.name == "double"
