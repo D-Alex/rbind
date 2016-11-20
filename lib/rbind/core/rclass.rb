@@ -90,33 +90,39 @@ module Rbind
                 if k.polymorphic?
                     add_operation RCastOperation.new("castFrom#{k.name}",self,k)
                 end
-                k.operations.each do |other_ops|
-                    next if other_ops.empty?
-                    ops = if @operations.has_key?(other_ops.first.name)
-                            @operations[other_ops.first.name]
-                          else
-                              []
-                          end
-                    other_ops.delete_if do |other_op|
-                        next true if !other_op || other_op.constructor?
-                        op = ops.find do |o|
-                            o == other_op
-                        end
-                        next false if !op
-                        next true if op.base_class == self
-                        next true if op.base_class == other_op.base_class
-                        # ambiguous name look up due to multi
-                        # inheritance
-                        op.ambiguous_name = true
-                        other_op.ambiguous_name = true
-                        false
-                    end
-                    other_ops = other_ops.map(&:dup)
-                    other_ops.each do |other|
-                        old = other.alias
-                        add_operation other
-                    end
-                end
+		k.operations.each do |other_ops|
+		    next if other_ops.empty?
+		    ops = if @operations.has_key?(other_ops.first.name)
+			      @operations[other_ops.first.name]
+			  else
+			      []
+			  end
+		    other_ops.delete_if do |other_op|
+			next true if !other_op || other_op.constructor? || other_op.static?
+			#check for name hiding
+			if own_ops.has_key?(other_op.name)
+			    #puts "#{other_op} is shadowed by #{own_ops[other_op.name].first}"
+			    next true
+			end
+			op = ops.find do |o|
+			    o == other_op
+			end
+			next false if !op
+			next true if o.base_class == self
+			next true if o.base_class == other_op.base_class
+
+			# ambiguous name look up due to multi
+			# inheritance
+			op.ambiguous_name = true
+			other_op.ambiguous_name = true
+			false
+		    end
+		    other_ops = other_ops.map(&:dup)
+		    other_ops.each do |other|
+			old = other.alias
+			add_operation other
+		    end
+		end
             end
             # copy embedded arrays other wise they might get modified outside
             result = @operations.values.map(&:dup)
