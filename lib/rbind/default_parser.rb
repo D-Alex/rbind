@@ -155,6 +155,11 @@ module Rbind
                                            end
                                      # auto add parent class
                                      t ||= begin
+					       # TODO fix error in parser
+					       # the parser always adds the current namespace
+					       # class Blas : public ::cv::Test
+					       # --> cv::::cv::Test
+					       name = name.gsub(/^.*::::/,"")	
                                                t = add_type(RClass.new(RBase.normalize(name)))
                                                t.extern_package_name = @extern_package_name
                                                t
