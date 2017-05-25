@@ -138,7 +138,26 @@ module Rbind
             parent_classes = $2
             flags = $3
             parent_classes = if parent_classes
-                                 parent_classes.gsub(" ","").split(",").map do |name|
+                                 classes = parent_classes.gsub(" ","").split(",")
+				 # join templates
+				 classes.each_with_index do |val,i|
+				     next unless val
+				     if val.include?("<")
+					 val = [val]
+					 (i+1).upto(classes.size-1) do |i2|
+					     val2 = classes[i2]
+					     val << val2
+					     classes[i2] = nil
+					     if val2.include?(">")
+						 break
+					     end
+					 end
+					 puts val
+					 classes[i] = val.join(",")
+				     end
+				 end
+				classes.compact!
+				classes.map do |name|
                                      #TODO this should also call the user callback
                                      t = type(RBase.normalize(name),false)
                                      # remove namespace and try again
