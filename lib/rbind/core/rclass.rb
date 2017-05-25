@@ -87,7 +87,7 @@ module Rbind
             own_ops = @operations.dup
             parent_classes.each do |k|
                 add_operation RCastOperation.new("castTo#{k.name}",k)
-                if k.polymorphic?
+                if k.polymorphic? && polymorphic?
                     add_operation RCastOperation.new("castFrom#{k.name}",self,k)
                 end
 		k.operations.each do |other_ops|
@@ -226,6 +226,7 @@ module Rbind
                 raise ArgumentError,"class #{klass.full_name} cannot be parent of its self"
             end
             @parent_classes[klass.name] = ParentClass.new(klass,accessor)
+	    raise "Cannot use namespace #{klass.full_name} as parent class for #{self.full_name}" unless(klass.respond_to?(:child?))
             klass.add_child(self,accessor) unless klass.child?(self)
             self
         end
