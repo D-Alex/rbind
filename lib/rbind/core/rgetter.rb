@@ -5,7 +5,7 @@ module Rbind
 
         def initialize(attr)
             @attribute = attr
-            super("get_#{attr.name}",attr.type)
+	    super("get_#{attr.name}",attr.type.to_const)
         end
 
         def attribute?
