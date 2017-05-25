@@ -13,8 +13,8 @@ module Rbind
             attr_accessor :default_operator_alias
         end
         # TODO move somewhere else
-        self.default_type_names = [:int,:int8,:int32,:int64,:uint,:uint8,:uint32,:uint64,
-                                   :int8_t,:int32_t,:int64_t,:uint8_t,:uint32_t,:uint64_t,
+        self.default_type_names = [:int,:int8,:int16,:int32,:int64,:uint,:uint8,:uint16,:uint32,:uint64,
+                                   :int8_t,:int16_t,:int32_t,:int64_t,:uint8_t,:uint16_t,:uint32_t,:uint64_t,
                                    :bool,:double,:float,:void,:char,:size_t,:long,
                                    :uchar, :char16, :char32, :ushort, :ulong, :ulong_long,
                                    :uint128, :short, :long_long, :int128, :long_double,
