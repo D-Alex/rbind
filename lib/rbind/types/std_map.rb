@@ -1,6 +1,6 @@
 module Rbind
     class StdMap < RTemplateClass
-        def specialize(klass,*parameters)
+        def specialize(klass,parameters)
             if parameters.size < 2
                 raise ArgumentError,"StdMap does require at least two template parameters. Got: #{parameters}}"
             end
@@ -17,7 +17,6 @@ module Rbind
 
             klass.add_operation ROperation.new("size",type("size_t"))
             klass.add_operation ROperation.new("clear",type("void"))
-            klass.add_operation ROperation.new("capacity",type("size_t"))
             klass.add_operation ROperation.new("empty",type("bool"))
             klass.add_operation ROperation.new("operator[]",map_value_type, RParameter.new("key_type", map_key_type))
             klass.add_operation ROperation.new("at",map_value_type, RParameter.new("key_type",map_key_type))

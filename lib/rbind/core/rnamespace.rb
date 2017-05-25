@@ -415,10 +415,23 @@ module Rbind
             # under the given name
             t ||=  if search_owner && name =~ /([:\w]*)<(.*)>$/
                       t = type($1,false) if $1 && !$1.empty?
-                      t2 = type($2,false) if $2 && !$2.empty?
+		      t2 = if $2 && !$2.empty?
+			       t2 = $2.split(',')
+			       bok = true
+			       t2 = t2.map do |t3|
+				   t3 = type(t3,false)
+				   bok = false unless t3 
+				   t3
+			       end
+			       if bok
+				   t2
+			       else
+				   nil
+			       end
+			   end
                       # template is known to this library
                       if t && t2 
-                          name = "#{t.name}<#{t2.full_name}>"
+			  name = "#{t.name}<#{t2.map{|t|t.full_name}.join(",")}>"
                           t3 ||= t.owner.type(name,false,false)
                           t3 ||= begin
                                      if !t.template?

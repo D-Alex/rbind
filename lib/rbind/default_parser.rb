@@ -152,7 +152,6 @@ module Rbind
 						 break
 					     end
 					 end
-					 puts val
 					 classes[i] = val.join(",")
 				     end
 				 end

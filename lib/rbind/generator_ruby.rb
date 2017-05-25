@@ -133,7 +133,12 @@ module Rbind
             # map template classes
             # std::vector<std::string> -> Std::Vector::Std_String
             if name =~ /([\w:]*)<(.*)>$/
-                return "#{normalize_type_name($1,true)}::#{normalize_type_name($2,true).gsub("::","_")}"
+		name = $1
+		names = $2.split(",")
+		names.map! do |val|
+		    normalize_type_name(val,true).gsub("::","_")
+		end
+		return "#{normalize_type_name(name,true)}::#{names.join("_")}"
             else
                 name
             end

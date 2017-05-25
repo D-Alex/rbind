@@ -1,6 +1,6 @@
 module Rbind
     class StdVector < RTemplateClass
-        def specialize(klass,*parameters)
+        def specialize(klass,parameters)
             if parameters.size != 1
                 raise ArgumentError,"StdVector does only support one template parameter. Got: #{parameters}}"
             end

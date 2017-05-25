@@ -86,9 +86,9 @@ module Rbind
             # temporarily add all base class operations
             own_ops = @operations.dup
             parent_classes.each do |k|
-                add_operation RCastOperation.new("castTo#{k.name}",k)
+		add_operation RCastOperation.new("castTo#{k.name.gsub(/[:,<>]/,"_")}",k)
                 if k.polymorphic? && polymorphic?
-                    add_operation RCastOperation.new("castFrom#{k.name}",self,k)
+                    add_operation RCastOperation.new("castFrom#{k.name.gsub(/[:,<>]/,"_")}",self,k)
                 end
 		k.operations.each do |other_ops|
 		    next if other_ops.empty?
