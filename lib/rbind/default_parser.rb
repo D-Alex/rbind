@@ -285,11 +285,17 @@ module Rbind
             flags = normalize_flags(line_number,flags,:S,:O)
             return_type = if return_type_name && !return_type_name.empty?
                               t = find_type(owner,return_type_name)
-                              if !t.ptr? && flags.include?(:O)
-                                  t.to_ref
-                              else
-                                  t
-                              end
+			      if flags.include?(:O)
+				  if t.ptr?
+				     t
+				  else
+				      t.to_ref  # the opencv parser encodes references as flags
+				  end
+			      elsif t.basic_type? && t.name != "c_string"
+				  t
+			      else
+				  t.to_const
+			      end
                           end
             line_counter = 1
             args = a.map do |line|
