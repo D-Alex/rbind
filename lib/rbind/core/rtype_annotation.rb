@@ -93,7 +93,7 @@ module Rbind
         end
 
         def to_ref
-            to_annotation? :ref,true
+            to_annotation :ref,true
         end
 
         def ref?

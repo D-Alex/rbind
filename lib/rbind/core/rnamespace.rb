@@ -452,7 +452,8 @@ module Rbind
                       # generic template is unknown
                       # check if specialised template is known
                       elsif t2 && $1 && !$1.empty? 
-                          real_name = "#{$1}<#{t2.full_name}>".gsub(">>","> >")
+			  real_name = t2.map{|v|v.full_name}.join(",");
+                          real_name = "#{$1}<#{real_name}>".gsub(">>","> >")
                           type(real_name,false) if(real_name != name) # prevent stack level too deep
                       else
                           nil
