@@ -187,7 +187,7 @@ module Rbind
                def wrap_parameters
                    cparameters.map do |arg|
                        next if arg.type.basic_type?
-                       "#{arg.type.to_single_ptr.signature} #{arg.name}_ = fromC(#{arg.name});\n\t"
+		       "#{arg.type.to_single_ptr.signature} #{arg.name}_ = fromC(#{arg.name},#{arg.parse_ownership?});\n\t"
                    end.compact.join("")
                end
 
@@ -208,15 +208,22 @@ module Rbind
                                  end
                              end
                          elsif __getobj__.is_a?(RCastOperation)
-                             param = if paras.empty?
-                                        "rbind_obj_"
-                                     else
-                                        paras
-                                     end
-                             str = "#{return_type} *__rbind_temp_ = dynamic_cast<#{return_type}*>(#{param});\n"
-                             str += "\tif(!__rbind_temp_)\n"
-                             str += "\t\t throw std::runtime_error(\"Typecast failed, incompatible types\");\n"
-                             str + "\treturn toC(__rbind_temp_,false);"
+			     param1,param2 = if parameters.size == 1
+						 ["rbind_obj_",paras]
+					     else
+						 paras.split(",")
+					     end
+			     str = "#{return_type} *__rbind_temp_ = dynamic_cast<#{return_type}*>(#{param1});\n"
+			     str += "\tif(!__rbind_temp_)\n"
+			     str += "\t\t throw std::runtime_error(\"Typecast failed, incompatible types\");\n"
+			     str += "\tif(#{param2})\n"
+			     str += "\t{\n"
+			     str += "\t\tif(!rbind_obj->bowner)\n"
+			     str += "\t\t    throw std::runtime_error(\"Cannot pass ownership. Object is owned by someone else. \");\n"
+			     str += "\t\telse\n"
+			     str += "\t\t    rbind_obj->bowner = false;\n"
+			     str += "\t}\n"
+			     str + "\treturn toC(__rbind_temp_,#{param2});"
                          else
                              fct = if !constructor? && (return_type.name != "void" || return_type.ptr?)
                                        # operator+, operator++ etc

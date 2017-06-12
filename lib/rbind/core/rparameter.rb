@@ -2,6 +2,7 @@
 module Rbind
     class RParameter < RAttribute
         attr_accessor :default_value
+        attr_accessor :parse_ownership
 
         def initialize(name,type,default_value=nil)
             super(name,type)
@@ -25,6 +26,10 @@ module Rbind
                 @default_value
             end
         end
+
+	def parse_ownership?
+	    @parse_ownership != nil
+	end
 
         def to_single_ptr
             t = self.clone

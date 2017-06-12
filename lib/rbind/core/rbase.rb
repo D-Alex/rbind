@@ -123,7 +123,7 @@ module Rbind
         end
 
         def owner=(obj)
-            raise ArgumentError,"Cannot at self as owner" if obj.object_id == self.object_id
+            raise ArgumentError,"Cannot add self as owner" if obj.object_id == self.object_id
             @owner = obj
             @namespace = nil
         end

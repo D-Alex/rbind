@@ -17,7 +17,7 @@ const <%= cname %>* toC(const <%= full_name %>* ptr, bool owner)
 }
 
 // converts const <%= cname %> to const <%= full_name %>
-const <%= full_name %>* fromC(const <%= cname %>* ptr)
+const <%= full_name %>* fromC(const <%= cname %>* ptr,bool parse_owner)
 {
     if(ptr == NULL)
         throw std::runtime_error("<%= full_name %>: Null Pointer!");
@@ -38,14 +38,20 @@ const <%= full_name %>* fromC(const <%= cname %>* ptr)
     // check size
     if(ptr->size && sizeof(<%= full_name %>) > ptr->size)
         throw std::runtime_error("wrong object size for <%= full_name %>.");
+    if(parse_owner)
+        throw std::runtime_error("cannot parse ownerhsip for const parameter for <%= full_name %>.");
     return static_cast<const <%= full_name %>*>(ptr->obj_ptr);
 }
 
 // converts <%= cname %>* to <%= full_name %>*
-<%= full_name %>* fromC(<%= cname %>* ptr)
+<%= full_name %>* fromC(<%= cname %>* ptr,bool parse_owner)
 {
     if(ptr == NULL)
         return NULL;
-    return const_cast<<%= full_name %>*>(fromC(static_cast<const <%= cname %>*>(ptr)));
+    if(parse_owner && !ptr->bowner)
+        throw std::runtime_error("Cannot parse ownership. The given object is already owned by someone else  <%= full_name %>.");
+    if(parse_owner)
+	ptr->bowner = false;
+    return const_cast<<%= full_name %>*>(fromC(static_cast<const <%= cname %>*>(ptr),false));
 }
 
