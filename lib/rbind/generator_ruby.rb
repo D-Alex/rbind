@@ -339,11 +339,10 @@ module Rbind
                                                   op_return_type = klass if klass.kind_of?(REnum)
                                               end
                                           end
-
                                           if op_return_type.basic_type?
                                               if op_return_type.ptr?
                                                   ":pointer"
-                                              elsif op_return_type.kind_of?(REnum)
+					      elsif op.return_type.to_raw.kind_of?(REnum)
                                                   ":#{normalize_enum op_return_type.to_raw.csignature}"
                                               else
                                                   ":#{normalize_bt op_return_type.to_raw.csignature}"
@@ -351,7 +350,7 @@ module Rbind
                                           else
                                               if op_return_type.extern_package_name
                                                   normalize_t("::#{op_return_type.extern_package_name}::#{op_return_type.to_raw.full_name}")
-                                              elsif op_return_type.kind_of?(REnum)
+					      elsif op_return_type.to_raw.kind_of?(REnum)
                                                   ":#{normalize_enum op_return_type.to_raw.full_name}"
                                               else
                                                   normalize_t op_return_type.to_raw.full_name
@@ -368,7 +367,7 @@ module Rbind
                             if p_type.basic_type?
                                 if p_type.ptr? || p.type.ref?
                                     ":pointer"
-                                elsif p.type.kind_of?(REnum)
+				elsif p.type.to_raw.kind_of?(REnum)
                                     # Includes enums, which need to be defined accordingly
                                     # using ffi:
                                     # enum :normalized_name, [:first, 1,
@@ -382,7 +381,7 @@ module Rbind
                             else
                                 if p_type.extern_package_name
                                     normalize_t("::#{p_type.extern_package_name}::#{p_type.to_raw.full_name}")
-                                elsif p_type.kind_of?(REnum)
+				elsif p_type.to_raw.kind_of?(REnum)
                                     ":#{normalize_enum p_type.to_raw.full_name}"
                                 else
                                     normalize_t p_type.to_raw.full_name
