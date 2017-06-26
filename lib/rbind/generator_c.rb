@@ -208,20 +208,22 @@ module Rbind
                                  end
                              end
                          elsif __getobj__.is_a?(RCastOperation)
-			     param1,param2 = if parameters.size == 1
-						 ["rbind_obj_",paras]
+			     param1,param2,param3 = if parameters.size == 1
+						 ["rbind_obj_",paras,"rbind_obj"]
 					     else
-						 paras.split(",")
+						 a = paras.split(",")
+						 a << parameters.first.name
+						 a
 					     end
 			     str = "#{return_type} *__rbind_temp_ = dynamic_cast<#{return_type}*>(#{param1});\n"
 			     str += "\tif(!__rbind_temp_)\n"
 			     str += "\t\t throw std::runtime_error(\"Typecast failed, incompatible types\");\n"
 			     str += "\tif(#{param2})\n"
 			     str += "\t{\n"
-			     str += "\t\tif(!rbind_obj->bowner)\n"
+			     str += "\t\tif(!#{param3}->bowner)\n"
 			     str += "\t\t    throw std::runtime_error(\"Cannot pass ownership. Object is owned by someone else. \");\n"
 			     str += "\t\telse\n"
-			     str += "\t\t    rbind_obj->bowner = false;\n"
+			     str += "\t\t    #{param3}->bowner = false;\n"
 			     str += "\t}\n"
 			     str + "\treturn toC(__rbind_temp_,#{param2});"
                          else
