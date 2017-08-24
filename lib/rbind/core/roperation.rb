@@ -10,6 +10,7 @@ module Rbind
         attr_accessor :ambiguous_name
         attr_accessor :index            # index if overloaded
         attr_accessor :static
+        attr_accessor :blocking
         attr_accessor :cplusplus_alias
 
         def initialize(name,return_type=nil,*args)
@@ -17,12 +18,17 @@ module Rbind
             @return_type = return_type
             @parameters = args.flatten
             @cplusplus_alias = true
+            @blocking = true
         end
 
         # indicates if an alias method shall be added
         # having the same name style like the c++ method
         def cplusplus_alias?
             !!@cplusplus_alias
+        end
+
+        def blocking?
+            !!@blocking
         end
 
         def add_parameter(para,&block)
