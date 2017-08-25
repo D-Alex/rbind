@@ -389,8 +389,8 @@ module Rbind
                             end
                         end
                         fct_name = normalize_m op.cname
-                        options = if !op.blocking?
-                                      options = ',{:bloking => false}'
+                        options = if op.blocking?
+                                      options = ',:blocking => true'
                                   else
                                       ""
                                   end

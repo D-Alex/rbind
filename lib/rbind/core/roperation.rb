@@ -18,7 +18,7 @@ module Rbind
             @return_type = return_type
             @parameters = args.flatten
             @cplusplus_alias = true
-            @blocking = true
+            @blocking = false
         end
 
         # indicates if an alias method shall be added
