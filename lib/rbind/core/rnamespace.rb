@@ -292,6 +292,11 @@ module Rbind
             current_type
         end
 
+        def add_const_val(name,value)
+            c = RParameter.new(name,type("const int"),value)
+            add_const(c)
+        end
+
         def add_const(const)
             const.const!
             if(c = const(const.full_name,false,false))
