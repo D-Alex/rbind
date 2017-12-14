@@ -682,7 +682,12 @@ module Rbind
                         HelperBase.log.warn "#{c.name}: no default value"
                         next
                     else
-                    "    #{c.name} = #{GeneratorRuby::normalize_type_name(c.default_value)}\n"
+                        val = begin
+                                  eval(c.default_value)
+                              rescue
+                                  GeneratorRuby::normalize_type_name(c.default_value)
+                              end
+                    "    #{c.name} = #{val}\n"
                     end
                 end.join
                 return str unless @compact_namespace
