@@ -389,12 +389,8 @@ module Rbind
                             end
                         end
                         fct_name = normalize_m op.cname
-                        options = if op.blocking?
-                                      options = ',:blocking => true'
-                                  else
-                                      ""
-                                  end
-                        str += "attach_function :#{fct_name},:#{op.cname},[#{args.join(",")}],#{return_type}#{options}\n"
+                        str += "@blocking = true; "if op.blocking?
+                        str += "attach_function :#{fct_name},:#{op.cname},[#{args.join(",")}],#{return_type}\n"
                         str
                     end
                     str+"\n"
