@@ -260,12 +260,12 @@ module Rbind
             op.alias = if !other
                            op.alias
                        elsif op.alias
-                           name = "#{op.alias}#{@operations[op.name].size+1}"
+                           name = "#{op.alias}__#{@operations[op.name].size+1}"
                            ::Rbind.log.debug "add_operation: name clash: aliasing #{op.alias} --> #{name}"
                            name
                        else
                            op.auto_alias = true
-                           name = "#{op.name}#{@operations[op.name].size+1}"
+                           name = "#{op.name}__#{@operations[op.name].size+1}"
                            ::Rbind.log.debug "add_operation: name clash: #{op.name} --> #{name}"
                            name
                        end
