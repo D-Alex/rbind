@@ -133,12 +133,12 @@ module Rbind
             # map template classes
             # std::vector<std::string> -> Std::Vector::Std_String
             if name =~ /([\w:]*)<(.*)>$/
-		name = $1
-		names = $2.split(",")
-		names.map! do |val|
-		    normalize_type_name(val,true).gsub("::","_")
-		end
-		return "#{normalize_type_name(name,true)}::#{names.join("_")}"
+                name = $1
+                names = $2.split(",")
+                names.map! do |val|
+                    normalize_type_name(val,true).gsub("::","_")
+                end
+		        return "#{normalize_type_name(name,true)}::#{names.join("_")}"
             else
                 name
             end
@@ -251,6 +251,24 @@ module Rbind
             name = name.gsub("::","_")
             name = name.downcase
             name
+        end
+
+        def self.normalize_enum_value(name)
+            name.gsub!(" ","")
+            # Parse constant declaration with suffix like 1000000LL
+            if name =~ /^([0-9]+)[uUlL]{0,2}/
+                name = $1
+                return name
+            end
+
+            names = name.split("<<").map do |n|
+                n.split("::").map do |n2|
+                    n2.gsub(/^(\w)(.*)/) do 
+                        $1.upcase+$2
+                    end
+                end.join("::")
+             end
+            return names.join("<<")
         end
 
         class HelperBase
@@ -406,12 +424,13 @@ module Rbind
                         str += "\tenum :#{GeneratorRuby::normalize_enum_name(t.to_raw.csignature)}, ["
                         t.values.each do |name,value|
                             if value
-                                str += ":#{name},#{value}, "
+                                value = GeneratorRuby.normalize_enum_value(value)
+                                str += ":#{name},#{GeneratorRuby.normalize_type_name(value)}, "
                             else
                                 str += ":#{name}, "
                             end
                         end
-                        str += "]\n\n"
+                        str += "]\n"
                     end
                 end
                 str

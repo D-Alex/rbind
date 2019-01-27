@@ -153,6 +153,9 @@ module Rbind
 					     end
 					 end
 					 classes[i] = val.join(",")
+                                     elsif val =="cv::class" # bug in parser
+                                         puts "ignore: parent class #{val} which is invalid for #{$1}"
+					 classes[i] = nil
 				     end
 				 end
 				classes.compact!
@@ -257,7 +260,46 @@ module Rbind
             [c,1]
         end
 
+        def parse_enum(line_number,string)
+            lines = string.split("\n")
+            a = lines.shift.rstrip.gsub("enum struct ","enum ")
+            a = a.gsub("enum class ","enum ")
+            unless a =~ /enum ([<>a-zA-Z\.\d_:]*)/
+                raise "cannot parse enum#{a}"
+            end
+            name = $1.gsub("<unnamed>","Unknown")
+            renum = REnum.new(name)
+            begin
+                renum = add_type(renum)
+            rescue => e
+                raise unless renum.name == "Unknown"
+            end
+
+            line_counter = 1
+            lines.each do |line|
+                line_counter += 1
+                line =~ /const ([<>a-zA-Z\.\d_:]*) (.*) \[\]/
+                val = $2.strip
+                name = $1.strip
+                name = name.gsub("#{renum.full_name.gsub("::",".")}.","")       # bug in hdl_parser giving full name for some of the types
+                name = name.gsub("#{renum.namespace.gsub("::",".")}.","")
+                val.split(/[ ><\+\-\*\/\&\|\)\(\~]/).each do |v|
+                    c = const(v,false)
+                    if c
+                        val.gsub!(v,c.full_name)
+                    elsif renum.values.include? v
+                        val.gsub!(v,renum.values[v])
+                    end
+                end
+                renum.add_value(name,val)
+            end
+            [renum,line_counter]
+        rescue RuntimeError  => e
+            raise "input line #{line_number}: #{e}"
+        end
+
         def parse_operation(line_number,string)
+            string = string.gsub(";"," ")        # strip wrong characters from the parser
             a = string.split("\n")
             line = a.shift
             flags = line.split(" /")
@@ -332,6 +374,8 @@ module Rbind
                                 parse_class(line_number,block)
                             elsif first == "struct"
                                 parse_struct(line_number,block)
+                            elsif first == "enum"
+                                parse_enum(line_number,block)
                             else
                                 parse_operation(line_number,block)
                             end

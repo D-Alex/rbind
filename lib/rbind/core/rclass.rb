@@ -220,10 +220,12 @@ module Rbind
                 raise ArgumentError, "klass name is empty"
             end
             if parent? klass
-                raise ArgumentError,"#A parent class with the name #{klass.name} already exists"
+                puts "ignore: parent class #{klass.name} was added multiple time to class #{name}"
+                return self
             end
             if klass.full_name == full_name || klass == self
-                raise ArgumentError,"class #{klass.full_name} cannot be parent of its self"
+                puts "ignore: class #{klass.name} cannot be parent class of itself"
+                return self
             end
             @parent_classes[klass.name] = ParentClass.new(klass,accessor)
 	    raise "Cannot use namespace #{klass.full_name} as parent class for #{self.full_name}" unless(klass.respond_to?(:child?))
