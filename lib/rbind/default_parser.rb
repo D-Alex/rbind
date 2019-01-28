@@ -283,7 +283,7 @@ module Rbind
                 name = $1.strip
                 name = name.gsub("#{renum.full_name.gsub("::",".")}.","")       # bug in hdl_parser giving full name for some of the types
                 name = name.gsub("#{renum.namespace.gsub("::",".")}.","")
-                val.split(/[ ><\+\-\*\/\&\|\)\(\~]/).each do |v|
+                Set.new(val.split(/[ ><\+\-\*\/\&\|\)\(\~]/)).each do |v|
                     c = const(v,false)
                     if c
                         val.gsub!(v,c.full_name)

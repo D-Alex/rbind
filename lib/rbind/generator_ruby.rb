@@ -253,22 +253,19 @@ module Rbind
             name
         end
 
-        def self.normalize_enum_value(name)
+        def self.normalize_const_value(name)
             name.gsub!(" ","")
             # Parse constant declaration with suffix like 1000000LL
             if name =~ /^([0-9]+)[uUlL]{0,2}/
                 name = $1
                 return name
             end
-
-            names = name.split("<<").map do |n|
-                n.split("::").map do |n2|
-                    n2.gsub(/^(\w)(.*)/) do 
-                        $1.upcase+$2
-                    end
-                end.join("::")
-             end
-            return names.join("<<")
+            # upcase first letter 
+            name = name.gsub(/\w*/) do |n|
+                next unless n.size > 0
+                n[0].upcase+n[1,n.size-1]
+            end
+            name
         end
 
         class HelperBase
@@ -424,7 +421,7 @@ module Rbind
                         str += "\tenum :#{GeneratorRuby::normalize_enum_name(t.to_raw.csignature)}, ["
                         t.values.each do |name,value|
                             if value
-                                value = GeneratorRuby.normalize_enum_value(value)
+                                value = GeneratorRuby.normalize_const_value(value)
                                 str += ":#{name},#{GeneratorRuby.normalize_type_name(value)}, "
                             else
                                 str += ":#{name}, "
@@ -704,13 +701,12 @@ module Rbind
                         val = begin
                                   eval(c.default_value)
                               rescue
-                                  GeneratorRuby::normalize_type_name(c.default_value)
+                                  GeneratorRuby::normalize_const_value(c.default_value)
                               end
                     "    #{c.name} = #{val}\n"
                     end
                 end.join
                 return str unless @compact_namespace
-
                 root.each_type(false) do |t|
                     next if t.basic_type? && !t.is_a?(RNamespace)
                     str += add_consts(t) if name == GeneratorRuby.normalize_type_name(t.full_name)
