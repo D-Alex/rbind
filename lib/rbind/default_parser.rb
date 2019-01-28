@@ -270,10 +270,11 @@ module Rbind
             end
             name = $1.gsub("<unnamed>","Unknown")
             renum = REnum.new(name)
-            begin
-                renum = add_type(renum)
+            renum = begin
+                add_type(renum)
             rescue => e
                 raise unless renum.name == "Unknown" || renum.values.empty?
+                type(renum.full_name)
             end
 
             line_counter = 1
