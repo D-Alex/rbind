@@ -273,8 +273,18 @@ module Rbind
             renum = begin
                 add_type(renum)
             rescue => e
-                raise unless renum.name == "Unknown" || renum.values.empty?
-                type(renum.full_name)
+                t = type(name)
+                if t.is_a? RClass
+                    if(t.operations.empty?)
+                        delete_type(name)
+                        t = add_type(renum)
+                    else
+                        raise "cannot overwrite #{t} with #{renum}"
+                    end
+                else
+                    raise unless renum.name == "Unknown" || renum.values.empty?
+                    t
+                end
             end
 
             line_counter = 1
