@@ -50,6 +50,7 @@ module Rbind
                 return type_name
             end
 
+            type_name = type_name.gsub("cv::vector","vector") # fix namespace
             if(type_name =~/^vector/ || type_name =~/^Ptr/)
                if(type_name =~ /^([a-zA-Z\d]*)_([_a-zA-Z\d]*) ?(\(?.*)\)? */)
                   "#{$1}<#{unmask_template($2)}>#{$3}"
@@ -89,7 +90,7 @@ module Rbind
             array = flags.shift.split(" ")
             type_name = array.shift
             para_name = array.shift
-            default = unmask_template(array.join(" "))
+            default = unmask_template(array.join(" ").gsub("/C",""))
             type = find_type(owner,type_name)
             flags = normalize_flags(line_number,flags,:IO,:O)
             type = if flags.include?(:O) || flags.include?(:IO)

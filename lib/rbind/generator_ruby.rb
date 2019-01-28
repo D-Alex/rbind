@@ -138,7 +138,7 @@ module Rbind
                 names.map! do |val|
                     normalize_type_name(val,true).gsub("::","_")
                 end
-		        return "#{normalize_type_name(name,true)}::#{names.join("_")}"
+                return "#{normalize_type_name(name,true)}::#{names.join("_")}"
             else
                 name
             end
