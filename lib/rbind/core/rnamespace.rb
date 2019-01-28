@@ -132,13 +132,28 @@ module Rbind
             end
         end
 
+        def enum_hash
+            @enum_hash ||= Hash.new     # cache values so that they can be modified
+            @types.each_value do |t|
+                next unless t.is_a? REnum
+                t.values.each do |key,value|
+                    next if @enum_hash.has_key?(key)
+                    p = RParameter.new(key,type("const int"),value)
+                    p.owner = self
+                    @enum_hash[key] = p
+                end
+            end
+            @enum_hash
+        end
+
         def consts
-            @consts.values
+            @consts.values+enum_hash.values
         end
 
         def const(name,raise_ = true,search_owner = true)
-            c = if @consts.has_key?(name)
-                    @consts[name]
+            hash = @consts.merge(enum_hash)
+            c = if hash.has_key?(name)
+                    hash[name]
                 else
                     if !!(ns = RBase.namespace(name))
                         t = type(ns,false)
