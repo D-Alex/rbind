@@ -32,8 +32,10 @@ module Rbind
 
             #write all types so they get parsed first
             @root.each_type do |t|
-                if t.is_a? RClass
+                if t.is_a?(RClass) 
                     file_extern.write "class #{GeneratorExtern.normalize_type_name(t.full_name)}\n"
+                elsif t.is_a?(REnum)
+                    file_extern.write "enum #{GeneratorExtern.normalize_type_name(t.full_name)}\n"
                 end
             end
 

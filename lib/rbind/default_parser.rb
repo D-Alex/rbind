@@ -272,7 +272,7 @@ module Rbind
             begin
                 renum = add_type(renum)
             rescue => e
-                raise unless renum.name == "Unknown"
+                raise unless renum.name == "Unknown" || renum.values.empty?
             end
 
             line_counter = 1
