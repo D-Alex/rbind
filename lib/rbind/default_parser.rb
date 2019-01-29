@@ -274,17 +274,10 @@ module Rbind
                 add_type(renum)
             rescue => e
                 t = type(name)
-                if t.is_a? RClass
-                    if(t.operations.empty?)
-                        delete_type(name)
-                        t = add_type(renum)
-                    else
-                        raise "cannot overwrite #{t} with #{renum}"
-                    end
-                else
-                    raise unless renum.name == "Unknown" || renum.values.empty?
-                    t
+                if !t.is_a? REnum || (renum.name != "Unknown" && !renum.values.empty?)
+                    raise "cannot overwrite #{t.class}: #{t} with #{renum.class}: #{renum}. Use forward declaration?"
                 end
+                t
             end
 
             line_counter = 1
