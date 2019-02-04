@@ -254,7 +254,7 @@ module Rbind
         end
 
         def self.normalize_const_value(name)
-            name.gsub!(" ","")
+            name = name.to_s.gsub(" ","")
             # Parse constant declaration with suffix like 1000000LL
             if name =~ /^([0-9]+)[uUlL]{0,2}/
                 name = $1
@@ -692,7 +692,7 @@ module Rbind
             end
 
             def add_consts(root=@root)
-                str = @root.consts.map do |c|
+                str = root.consts.map do |c|
                     next if c.extern? || c.ignore?
                     if not c.default_value
                         HelperBase.log.warn "#{c.name}: no default value"
