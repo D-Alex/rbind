@@ -1,10 +1,10 @@
 Gem::Specification.new do |s|
     s.name              = 'rbind'
-    s.version           = '0.0.26'
-    s.date              = '2014-10-11'
+    s.version           = '0.0.30'
+    s.date              = '2019-06-06'
     s.platform          = Gem::Platform::RUBY
     s.authors           = ['Alexander Duda']
-    s.email             = ['Alexander.Duda@dfki.de']
+    s.email             = ['Alexander.Duda@me.com']
     s.homepage          = 'http://github.com/D-Alex/rbind'
     s.summary           = 'Library for genereating automated ffi-bindings for c/c++ libraries'
     s.description       = 'Rbind is developed to automatically generate ruby bindings for OpenCV '\
