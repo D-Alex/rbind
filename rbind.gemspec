@@ -14,6 +14,4 @@ Gem::Specification.new do |s|
     s.require_path      = 'lib'
     s.required_rubygems_version = ">= 1.3.6"
     s.add_runtime_dependency "ffi", ">= 1.9.0"
-
-    #s.rubyforge_project = s.name
 end
