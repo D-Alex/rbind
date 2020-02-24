@@ -65,7 +65,7 @@ module Rbind
                       elsif parameter.type.is_a? REnum
                           ":#{parameter.default_value.split("::").last}"
                       elsif parameter.type.name == "float"
-                          parameter.default_value.gsub("f","").gsub(/\.$/,".0").gsub(/^\./,"0.")
+                          parameter.default_value.gsub("f","").gsub("F","").gsub(/\.$/,".0").gsub(/^\./,"0.")
                       elsif parameter.type.name == "double"
                           parameter.default_value.gsub(/\.$/,".0").gsub(/^\./,"0.")
                       elsif parameter.type.ptr? &&(parameter.default_value == "0" || parameter.default_value = "NULL")
