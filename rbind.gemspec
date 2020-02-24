@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
     s.name              = 'rbind'
-    s.version           = '0.0.30'
-    s.date              = '2019-06-06'
+    s.version           = '0.0.31'
+    s.date              = '2020-02-24'
     s.platform          = Gem::Platform::RUBY
     s.authors           = ['Alexander Duda']
     s.email             = ['Alexander.Duda@me.com']
@@ -13,7 +13,7 @@ Gem::Specification.new do |s|
     s.files             = `git ls-files`.split("\n")
     s.require_path      = 'lib'
     s.required_rubygems_version = ">= 1.3.6"
-    s.add_runtime_dependency "ffi", ">= 1.9.0"
+    s.add_runtime_dependency 'ffi', '~> 1.9', '>= 1.9.0'
 
     #s.rubyforge_project = s.name
 end
