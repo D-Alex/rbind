@@ -91,6 +91,7 @@ module Rbind
             type_name = array.shift
             para_name = array.shift
             default = unmask_template(array.join(" ").gsub("/C",""))
+            default.gsub!("/Ref","")
             type = find_type(owner,type_name)
             flags = normalize_flags(line_number,flags,:IO,:O)
             type = if flags.include?(:O) || flags.include?(:IO)
