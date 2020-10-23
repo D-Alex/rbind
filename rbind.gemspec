@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
     s.name              = 'rbind'
-    s.version           = '0.0.32'
+    s.version           = '0.0.33'
     s.date              = '2020-02-29'
     s.platform          = Gem::Platform::RUBY
     s.authors           = ['Alexander Duda']
