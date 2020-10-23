@@ -108,8 +108,8 @@ module Rbind
 			    o == other_op
 			end
 			next false if !op
-			next true if o.base_class == self
-			next true if o.base_class == other_op.base_class
+			next true if op.base_class == self
+			next true if op.base_class == other_op.base_class
 
 			# ambiguous name look up due to multi
 			# inheritance
