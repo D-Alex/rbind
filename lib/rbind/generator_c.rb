@@ -192,6 +192,8 @@ module Rbind
                end
 
                def wrap_call
+		   str = overwrite_c()
+		   return str if str
                    paras = parameters.map do |arg|
                        "#{"*" if (!arg.type.ptr? && !arg.type.basic_type?)}#{arg.name}#{"_" if !arg.type.basic_type?}"
                    end.join(", ")

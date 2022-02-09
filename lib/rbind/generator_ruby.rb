@@ -657,6 +657,13 @@ module Rbind
                 GeneratorRuby.normalize_method_name(@root.cdelete_method)
             end
 
+	    def rbind_from_native
+		overwrite = @root.overwrite_ruby
+		return overwrite if overwrite
+		"#{name}.new(ptr)"
+	    end
+
+
             def add_specializing(root = @root)
                 str = root.specialize_ruby.to_s
                 root.each_type(false) do |t|

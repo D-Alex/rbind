@@ -55,7 +55,7 @@ class <%= name %>
 
     # @private
     def self.rbind_from_native(ptr,context)
-        <%= name %>.new(ptr)
+        <%= rbind_from_native %>
     end
 
     # @private

@@ -22,7 +22,31 @@ module Rbind
             klass.add_operation ROperation.new("at",map_value_type, RParameter.new("key_type",map_key_type))
             klass.add_operation ROperation.new("erase",type("void"), RParameter.new("key_type",map_key_type))
 
-            klass
+            klass.add_operation ROperation.new("getKeys",type("std::vector<#{map_key_type}>"))
+            klass.operation("getKeys").overwrite_c do
+		str = %{
+		    auto keys = new std::vector<#{map_key_type}>();
+		    std::transform(std::begin(*rbind_obj_), std::end(*rbind_obj_), std::back_inserter(*keys), 
+				    [](std::pair<#{map_key_type},#{map_value_type}> const& pair) {
+			    return pair.first;
+			}); 
+		    return toC(keys);
+		}
+	    end
+	    klass
+        end
+
+        # called from RTemplate when ruby_specialize is called for the instance
+        def specialize_ruby_specialization(klass)
+            %Q$ 
+            def to_hash
+	        hash = Hash.new
+	    	keys = get_keys
+		keys.each do |k|
+		    hash[k] = self[k]
+		end
+		hash
+            end$
         end
     end
 end

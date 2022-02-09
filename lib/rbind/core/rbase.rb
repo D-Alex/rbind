@@ -208,5 +208,27 @@ module Rbind
                 @specialize_ruby.call
             end
         end
+
+        # overwrite c 
+	# depends on type
+	# at the moment only operations can be overwritten
+        def overwrite_c(&block)
+            if block
+                @overwrite_c = block
+            elsif @overwrite_c
+                @overwrite_c.call
+            end
+        end
+
+        # overwrite ruby
+	# depends on type
+	# at the moment only rbind_from_native can be overwritten
+        def overwrite_ruby(&block)
+            if block
+                @overwrite_ruby = block
+            elsif @overwrite_ruby
+                @overwrite_ruby.call
+            end
+        end
     end
 end
