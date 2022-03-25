@@ -11,7 +11,12 @@ module Rbind
 
             para = Array.new
             para <<  RParameter.new("size",type("size_t"))
-            para <<  RParameter.new("val",vector_type).default_value(vector_type.full_name+"()").to_const
+            if vector_type.is_a? REnum 
+                para <<  RParameter.new("val",vector_type)
+            else
+               para <<  RParameter.new("val",vector_type).default_value(vector_type.full_name+"()").to_const
+            end
+
             klass.add_operation ROperation.new("resize",type("void"),para)
             klass.add_operation ROperation.new("size",type("size_t"))
             klass.add_operation ROperation.new("clear",type("void"))
