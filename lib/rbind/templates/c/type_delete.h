@@ -8,7 +8,7 @@ void <%= cdelete_method %>(<%= cname %> *ptr)
             delete fromC(ptr);
         ptr->obj_ptr = NULL;
     }
-    catch(std::exception &error){strncpy(&last_error_message[0],error.what(),255);}
-    catch(...){strncpy(&last_error_message[0],"Unknown Exception",255);}
+    catch(std::exception &error){strncpy(&last_error_message[0],error.what(),254);}
+    catch(...){strncpy(&last_error_message[0],"Unknown Exception",254);}
     delete ptr;
 }
