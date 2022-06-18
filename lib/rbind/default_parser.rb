@@ -367,7 +367,8 @@ module Rbind
             @extern_package_name = extern_package_name
 
             a = split(string)
-            #remove number at the end of the file
+            #remove namespances and number at the end of the file
+            a.pop if (a.last =~/namespaces:/) == 0
             a.pop if a.last.to_i != 0
 
             line_number = 1
