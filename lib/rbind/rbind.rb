@@ -91,6 +91,7 @@ module Rbind
                 "\"#{h}\""
             end
             path = File.join(File.dirname(__FILE__),'tools','hdr_parser.py')
+            puts headers
             out = IO.popen("python #{path} #{headers.join(" ")}")
             out.read
         end

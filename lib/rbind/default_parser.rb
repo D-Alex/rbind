@@ -89,6 +89,7 @@ module Rbind
             flags = string.split(" /")
             array = flags.shift.split(" ")
             type_name = array.shift
+            type_name = array.shift if(type_name == "const")
             para_name = array.shift
             default = unmask_template(array.join(" ").gsub("/C",""))
             default.gsub!("/Ref","")
@@ -313,12 +314,16 @@ module Rbind
             elements = line.split(" ")
             name = elements.shift
             return_type_name = elements.shift
-            if return_type_name == "()"
+            if return_type_name == "()" || return_type_name == "const"
                 name += return_type_name
                 return_type_name = elements.shift
             end
             alias_name = elements.shift
             alias_name = if alias_name
+                             if alias_name == "CV_NORETURN"
+                                puts "ignore operation #{string}"
+                                return [nil,line_number+string.lines.count]
+                             end
                              raise "#{line_number}: cannot parse #{string}" unless alias_name =~/^=.*/
                              alias_name.gsub("=","")
                          end
@@ -367,7 +372,8 @@ module Rbind
             @extern_package_name = extern_package_name
 
             a = split(string)
-            #remove number at the end of the file
+            #remove namespances and number at the end of the file
+            a.pop if (a.last =~/namespaces:/) == 0
             a.pop if a.last.to_i != 0
 
             line_number = 1
@@ -404,6 +410,10 @@ module Rbind
             if string
                 string.each_line do |line|
                     if line == "\n" || line.empty?
+                       next
+                    elsif (line =~ /    \)/) == 0
+                       # bug in hd_parser.py
+                       puts "ignore wrong hd_parser.py value: #{line}"
                        next
                     elsif line[0] != " "
                         array << line
